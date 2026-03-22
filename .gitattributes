@@ -1,0 +1,43 @@
+# Auto detect text files and normalize line endings
+* text=auto
+
+# Python
+*.py text diff=python
+
+# JavaScript
+*.js text
+*.jsx text
+*.json text
+
+# Web
+*.html text
+*.css text
+
+# Config
+*.yml text
+*.yaml text
+*.toml text
+*.cfg text
+*.ini text
+
+# Shell
+*.sh text eol=lf
+
+# Markdown
+*.md text
+
+# Binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Lock files - don't diff
+uv.lock -diff
+package-lock.json -diff
