@@ -75,7 +75,8 @@ def _check_capacity(event, gender):
     """Check whether there is capacity for a given gender at an event.
 
     Counts both confirmed and pending registrations as "reserved" spots.
-    Returns True if a spot is available, False if full.
+    Women are only limited by total capacity.
+    Men are limited by total capacity AND the max_male_ratio.
     """
     reserved = Registration.objects.filter(
         event=event, status__in=("confirmed", "pending")
@@ -83,12 +84,12 @@ def _check_capacity(event, gender):
     total_reserved = reserved.count()
     if total_reserved >= event.capacity:
         return False
-    gender_reserved = reserved.filter(attendee__gender=gender).count()
     if gender == "male":
-        gender_cap = event.effective_capacity_male
-    else:
-        gender_cap = event.effective_capacity_female
-    return gender_reserved < gender_cap
+        male_reserved = reserved.filter(attendee__gender="male").count()
+        # Would adding one more male exceed the ratio?
+        if (male_reserved + 1) / (total_reserved + 1) > event.max_male_ratio:
+            return False
+    return True
 
 
 @api.post(
@@ -101,6 +102,16 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
     except Event.DoesNotExist:
         return 404, {"detail": "Event not found"}
 
+    # Age validation
+    if payload.age < event.min_age or (event.max_age is not None and payload.age > event.max_age):
+        return 400, {
+            "detail": f"This event is for ages {event.age_label}. "
+            f"You must be {event.min_age} or older to register."
+            if event.max_age is None
+            else f"This event is for ages {event.age_label}. "
+            f"You must be between {event.min_age} and {event.max_age} to register."
+        }
+
     # Get or create attendee by email, updating other fields
     attendee, _ = Attendee.objects.update_or_create(
         email=payload.email,
@@ -109,8 +120,8 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
             "last_name": payload.last_name,
             "phone": payload.phone,
             "gender": payload.gender,
-            "age_group": payload.age_group,
-            "contact_preference": payload.contact_preference,
+            "age": payload.age,
+            "experience": payload.experience,
         },
     )
 
@@ -118,7 +129,11 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
     registration, created = Registration.objects.get_or_create(
         event=event,
         attendee=attendee,
-        defaults={"status": "pending"},
+        defaults={
+            "status": "pending",
+            "attending_coaching": payload.attending_coaching,
+            "attending_happy_hour": payload.attending_happy_hour,
+        },
     )
 
     if not created:
@@ -438,7 +453,7 @@ def get_match_form(request: HttpRequest, match_token: str):
 
     return 200, MatchFormDataOut(
         event_title=event.title,
-        event_date=event.event_date.isoformat(),
+        event_date=event.event_date,
         attendee_name=registration.attendee.first_name,
         attendees=attendees,
         already_submitted=already_submitted,
@@ -536,7 +551,10 @@ def admin_event_registrations(request: HttpRequest, event_id: int):
                 "attendee_email": reg.attendee.email,
                 "attendee_phone": reg.attendee.phone,
                 "attendee_gender": reg.attendee.gender,
-                "attendee_contact_preference": reg.attendee.contact_preference,
+                "attendee_age": reg.attendee.age,
+                "attendee_experience": reg.attendee.experience,
+                "attending_coaching": reg.attending_coaching,
+                "attending_happy_hour": reg.attending_happy_hour,
             }
         )
     return 200, results

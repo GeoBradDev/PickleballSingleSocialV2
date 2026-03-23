@@ -108,7 +108,7 @@ function HomePage() {
                 sx={{ mr: 1, mb: 1, backgroundColor: 'white' }}
               />
               <Chip
-                label={`Ages ${nextEvent.age_group}`}
+                label={`Ages ${nextEvent.age_label}`}
                 sx={{ mb: 1, backgroundColor: 'white' }}
               />
             </Box>

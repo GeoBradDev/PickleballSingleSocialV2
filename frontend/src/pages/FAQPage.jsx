@@ -33,9 +33,9 @@ const faqs = [
       'Just yourself and comfortable athletic clothes and shoes! We provide all pickleball equipment including paddles and balls. If you have your own paddle, feel free to bring it. We also recommend bringing a water bottle to stay hydrated.',
   },
   {
-    question: 'What are the age groups?',
+    question: 'What are the age ranges?',
     answer:
-      'We currently offer two age groups: 25-45 and 45+. Each event is specific to one age group so you are meeting people in a similar life stage. Check the Events page to find the right group for you.',
+      'Each event has a specific age range so you are meeting people in a similar life stage. Your age is verified during registration. Check the Events page to find the right event for you.',
   },
   {
     question: 'How does the matching work?',

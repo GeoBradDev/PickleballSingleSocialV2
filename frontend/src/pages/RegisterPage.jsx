@@ -10,6 +10,8 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { loadStripe } from '@stripe/stripe-js';
@@ -80,8 +82,10 @@ function RegisterPage() {
     email: '',
     phone: '',
     gender: '',
-    age_group: '',
-    contact_preference: 'email',
+    age: '',
+    experience: '',
+    attending_coaching: false,
+    attending_happy_hour: false,
   });
 
   useEffect(() => {
@@ -97,9 +101,10 @@ function RegisterPage() {
   }, [eventId]);
 
   function handleChange(e) {
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
   }
 
@@ -109,7 +114,7 @@ function RegisterPage() {
     setError(null);
 
     try {
-      const result = await registerForEvent(eventId, formData);
+      const result = await registerForEvent(eventId, { ...formData, age: Number(formData.age) });
       setClientSecret(result.client_secret);
     } catch (err) {
       setError(err.message);
@@ -147,7 +152,7 @@ function RegisterPage() {
             {formatDate(event.date)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Age Group: {event.age_group}
+            Ages {event.age_label}
           </Typography>
         </Paper>
       )}
@@ -231,31 +236,51 @@ function RegisterPage() {
                 <MenuItem value="female">Female ($15)</MenuItem>
               </Select>
             </FormControl>
+            <TextField
+              label="Age"
+              name="age"
+              type="number"
+              value={formData.age}
+              onChange={handleChange}
+              required
+              fullWidth
+              helperText={event ? `This event is for ages ${event.age_label}` : ''}
+              slotProps={{ htmlInput: { min: 18, max: 120 } }}
+            />
             <FormControl fullWidth required>
-              <InputLabel>Age Group</InputLabel>
+              <InputLabel>Pickleball Experience</InputLabel>
               <Select
-                name="age_group"
-                value={formData.age_group}
+                name="experience"
+                value={formData.experience}
                 onChange={handleChange}
-                label="Age Group"
+                label="Pickleball Experience"
               >
-                <MenuItem value="25-45">25-45</MenuItem>
-                <MenuItem value="45+">45+</MenuItem>
+                <MenuItem value="none">Never played</MenuItem>
+                <MenuItem value="beginner">Beginner (played a few times)</MenuItem>
+                <MenuItem value="intermediate">Intermediate (play regularly)</MenuItem>
+                <MenuItem value="advanced">Advanced (competitive)</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Contact Preference</InputLabel>
-              <Select
-                name="contact_preference"
-                value={formData.contact_preference}
-                onChange={handleChange}
-                label="Contact Preference"
-              >
-                <MenuItem value="email">Email</MenuItem>
-                <MenuItem value="text">Text</MenuItem>
-                <MenuItem value="both">Both</MenuItem>
-              </Select>
-            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="attending_coaching"
+                  checked={formData.attending_coaching}
+                  onChange={handleChange}
+                />
+              }
+              label="I plan to attend the beginner coaching session (2:30 PM)"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="attending_happy_hour"
+                  checked={formData.attending_happy_hour}
+                  onChange={handleChange}
+                />
+              }
+              label="I plan to attend the happy hour after the event"
+            />
             <Button
               type="submit"
               variant="contained"

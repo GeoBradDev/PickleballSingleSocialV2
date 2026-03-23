@@ -1,11 +1,15 @@
+from datetime import datetime
+
 from ninja import Schema
 
 
 class EventOut(Schema):
     id: int
     title: str
-    age_group: str
-    event_date: str
+    age_label: str
+    min_age: int
+    max_age: int | None
+    event_date: datetime
     capacity: int
     status: str
     male_count: int = 0
@@ -18,8 +22,10 @@ class RegistrationIn(Schema):
     email: str
     phone: str
     gender: str
-    age_group: str
-    contact_preference: str = "email"
+    age: int
+    experience: str = "none"
+    attending_coaching: bool = False
+    attending_happy_hour: bool = False
 
 
 class RegistrationOut(Schema):
@@ -50,10 +56,11 @@ class ErrorOut(Schema):
 
 
 class EventIn(Schema):
-    title: str
-    age_group: str
+    min_age: int = 25
+    max_age: int | None = 45
     event_date: str
     capacity: int = 32
+    max_male_ratio: float = 0.5
     status: str = "draft"
 
 
@@ -67,7 +74,10 @@ class RegistrationDetailOut(Schema):
     attendee_email: str
     attendee_phone: str
     attendee_gender: str
-    attendee_contact_preference: str
+    attendee_age: int
+    attendee_experience: str
+    attending_coaching: bool
+    attending_happy_hour: bool
 
 
 class EventStatsOut(Schema):
@@ -92,7 +102,7 @@ class MatchFormAttendeeOut(Schema):
 
 class MatchFormDataOut(Schema):
     event_title: str
-    event_date: str
+    event_date: datetime
     attendee_name: str  # greeting name for the viewer
     attendees: list[MatchFormAttendeeOut]
     already_submitted: bool = False

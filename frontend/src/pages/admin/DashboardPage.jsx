@@ -48,7 +48,7 @@ function DashboardPage() {
             <TableRow>
               <TableCell>Title</TableCell>
               <TableCell>Date</TableCell>
-              <TableCell>Age Group</TableCell>
+              <TableCell>Ages</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Registrations</TableCell>
               <TableCell>Actions</TableCell>
@@ -59,7 +59,7 @@ function DashboardPage() {
               <TableRow key={event.id}>
                 <TableCell>{event.title}</TableCell>
                 <TableCell>{new Date(event.event_date).toLocaleDateString()}</TableCell>
-                <TableCell>{event.age_group}</TableCell>
+                <TableCell>{event.age_label}</TableCell>
                 <TableCell>{event.status}</TableCell>
                 <TableCell>{event.registration_count ?? 0}</TableCell>
                 <TableCell>
