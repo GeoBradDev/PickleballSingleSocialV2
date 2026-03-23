@@ -1,6 +1,6 @@
 databases:
   - name: pickleballsinglessocial-db
-    plan: starter
+    plan: basic
     databaseName: pickleball
     user: pickleball
 
@@ -67,7 +67,6 @@ services:
   - type: web
     name: pickleballsinglessocial
     runtime: static
-    plan: free
     rootDir: frontend
     branch: prod
     buildCommand: npm install && npm run build
