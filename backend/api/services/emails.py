@@ -35,6 +35,82 @@ def send_registration_confirmation(registration):
     _log_email(registration.attendee, registration.event, email_type)
 
 
+def send_waitlist_notification(registration):
+    """Notify registrant they are on the waitlist."""
+    email_type = "waitlist_notification"
+    if _already_sent(registration.attendee, registration.event, email_type):
+        return
+    subject = f"You're on the waitlist for {registration.event.title}"
+    html = f"""
+    <h2>You're on the Waitlist</h2>
+    <p>Hi {registration.attendee.first_name},</p>
+    <p>Thanks for signing up for <strong>{registration.event.title}</strong>!</p>
+    <p>We keep the group intentionally small and balanced,
+    and we've currently filled our spots. You're on the waitlist.
+    If an opening comes up, you'll hear from us right away.</p>
+    <p>Questions? Just reply to this email.</p>
+    """
+    from .mailerlite import send_email, add_subscriber
+
+    send_email(registration.attendee.email, subject, html)
+    add_subscriber(
+        registration.attendee.email,
+        registration.attendee.first_name,
+        registration.attendee.last_name,
+    )
+    _log_email(registration.attendee, registration.event, email_type)
+
+
+def send_waitlist_promotion(registration):
+    """Notify a promoted registrant that a spot opened up and they can now pay."""
+    email_type = "waitlist_promotion"
+    if _already_sent(registration.attendee, registration.event, email_type):
+        return
+    event = registration.event
+    pay_url = (
+        f"https://pickleballsinglessocial.com/events/{event.id}"
+        f"/pay?registration={registration.id}"
+    )
+    subject = f"A spot opened up for {event.title}!"
+    html = f"""
+    <h2>A Spot Opened Up!</h2>
+    <p>Hi {registration.attendee.first_name},</p>
+    <p>Good news: a spot has opened up for
+    <strong>{event.title}</strong> on
+    {event.event_date.strftime('%B %d, %Y')}!</p>
+    <p>Complete payment to lock in your spot:</p>
+    <p><a href="{pay_url}"
+       style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+       Pay and confirm your spot</a></p>
+    <p>This link is first come, first served. If payment isn't completed soon,
+    your spot may be offered to the next person on the waitlist.</p>
+    """
+    from .mailerlite import send_email
+
+    send_email(registration.attendee.email, subject, html)
+    _log_email(registration.attendee, registration.event, email_type)
+
+
+def send_payment_expired(registration):
+    """Notify registrant their payment window has expired."""
+    email_type = "payment_expired"
+    if _already_sent(registration.attendee, registration.event, email_type):
+        return
+    subject = f"Your payment link has expired for {registration.event.title}"
+    html = f"""
+    <h2>Payment Link Expired</h2>
+    <p>Hi {registration.attendee.first_name},</p>
+    <p>Your payment link for <strong>{registration.event.title}</strong>
+    has expired and your spot has been released.</p>
+    <p>If you're still interested, just reply to this email
+    and we'll do our best to get you back in.</p>
+    """
+    from .mailerlite import send_email
+
+    send_email(registration.attendee.email, subject, html)
+    _log_email(registration.attendee, registration.event, email_type)
+
+
 def send_reminder(registration):
     """3-day-before reminder."""
     email_type = "reminder"

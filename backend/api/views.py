@@ -1,4 +1,5 @@
 import json
+import logging
 
 import stripe
 from django.conf import settings
@@ -22,12 +23,16 @@ from .schemas import (
     MatchOut,
     MatchSubmissionOut,
     PaymentIntentOut,
+    RegisterResponseOut,
     RegistrationDetailOut,
     RegistrationIn,
     RegistrationOut,
+    RegistrationPaymentOut,
     SubscribeIn,
     TriggerOut,
 )
+
+logger = logging.getLogger("api.views")
 
 api = NinjaAPI(title="Pickleball Singles Social API", version="1.0.0")
 
@@ -61,20 +66,40 @@ def get_event(request: HttpRequest, event_id: int):
     return 200, event
 
 
+def _get_price_cents(gender):
+    """Return price in cents based on gender."""
+    return 1500 if gender == "female" else 2000
+
+
+def _check_capacity(event, gender):
+    """Check whether there is capacity for a given gender at an event.
+
+    Counts both confirmed and pending registrations as "reserved" spots.
+    Returns True if a spot is available, False if full.
+    """
+    reserved = Registration.objects.filter(
+        event=event, status__in=("confirmed", "pending")
+    )
+    total_reserved = reserved.count()
+    if total_reserved >= event.capacity:
+        return False
+    gender_reserved = reserved.filter(attendee__gender=gender).count()
+    if gender == "male":
+        gender_cap = event.effective_capacity_male
+    else:
+        gender_cap = event.effective_capacity_female
+    return gender_reserved < gender_cap
+
+
 @api.post(
     "/events/{event_id}/register/",
-    response={200: PaymentIntentOut, 400: ErrorOut, 404: ErrorOut},
+    response={200: RegisterResponseOut, 400: ErrorOut, 404: ErrorOut},
 )
 def register_for_event(request: HttpRequest, event_id: int, payload: RegistrationIn):
     try:
         event = Event.objects.get(id=event_id)
     except Event.DoesNotExist:
         return 404, {"detail": "Event not found"}
-
-    # Check capacity
-    confirmed_count = Registration.objects.filter(event=event, status="confirmed").count()
-    if confirmed_count >= event.capacity:
-        return 400, {"detail": "Event is full"}
 
     # Get or create attendee by email, updating other fields
     attendee, _ = Attendee.objects.update_or_create(
@@ -89,19 +114,43 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
         },
     )
 
-    # Create registration
+    # Check for existing registration
     registration, created = Registration.objects.get_or_create(
         event=event,
         attendee=attendee,
         defaults={"status": "pending"},
     )
 
-    if not created and registration.status == "confirmed":
-        return 400, {"detail": "Already registered and confirmed for this event"}
+    if not created:
+        if registration.status == "confirmed":
+            return 400, {"detail": "Already registered and confirmed for this event"}
+        if registration.status == "waitlisted":
+            return 200, {"registration_id": registration.id, "status": "waitlisted"}
+        if registration.status == "pending" and registration.payment_intent_id:
+            # Return existing PaymentIntent so they can retry payment
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            intent = stripe.PaymentIntent.retrieve(registration.payment_intent_id)
+            return 200, {
+                "registration_id": registration.id,
+                "status": "pending",
+                "client_secret": intent.client_secret,
+            }
+
+    # Check gender-based capacity
+    if not _check_capacity(event, attendee.gender):
+        registration.status = "waitlisted"
+        registration.save()
+        logger.info(
+            "Registration %d waitlisted: %s for %s (gender=%s)",
+            registration.id, attendee.email, event.title, attendee.gender,
+        )
+        from api.services.emails import send_waitlist_notification
+        send_waitlist_notification(registration)
+        return 200, {"registration_id": registration.id, "status": "waitlisted"}
 
     # Create Stripe PaymentIntent
     stripe.api_key = settings.STRIPE_SECRET_KEY
-    amount = 1500 if attendee.gender == "female" else 2000
+    amount = _get_price_cents(attendee.gender)
 
     intent = stripe.PaymentIntent.create(
         amount=amount,
@@ -113,11 +162,17 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
     )
 
     registration.payment_intent_id = intent.id
+    registration.status = "pending"
     registration.save()
+    logger.info(
+        "Registration %d pending: %s for %s (pi=%s)",
+        registration.id, attendee.email, event.title, intent.id,
+    )
 
     return 200, {
-        "client_secret": intent.client_secret,
         "registration_id": registration.id,
+        "status": "pending",
+        "client_secret": intent.client_secret,
     }
 
 
@@ -132,26 +187,172 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
     except ValueError:
+        logger.warning("Stripe webhook: invalid payload")
         return HttpResponse("Invalid payload", status=400)
     except stripe.error.SignatureVerificationError:
+        logger.warning("Stripe webhook: invalid signature")
         return HttpResponse("Invalid signature", status=400)
 
-    if event["type"] == "payment_intent.succeeded":
-        payment_intent = event["data"]["object"]
-        registration_id = payment_intent.get("metadata", {}).get("registration_id")
-        if registration_id:
-            Registration.objects.filter(id=registration_id).update(status="confirmed")
-            try:
-                from api.services.emails import send_registration_confirmation
+    event_type = event["type"]
+    logger.info("Stripe webhook received: type=%s", event_type)
 
-                reg = Registration.objects.select_related("attendee", "event").get(
-                    id=registration_id
-                )
-                send_registration_confirmation(reg)
-            except Registration.DoesNotExist:
-                pass
+    if event_type == "payment_intent.succeeded":
+        _handle_payment_succeeded(event["data"]["object"])
+    elif event_type == "payment_intent.canceled":
+        _handle_payment_canceled(event["data"]["object"])
 
     return HttpResponse("OK", status=200)
+
+
+def _handle_payment_succeeded(payment_intent):
+    """Handle successful payment: confirm registration, send email, check capacity."""
+    registration_id = payment_intent.get("metadata", {}).get("registration_id")
+    if not registration_id:
+        logger.warning("payment_intent.succeeded missing registration_id in metadata")
+        return
+
+    try:
+        reg = Registration.objects.select_related("attendee", "event").get(
+            id=registration_id
+        )
+    except Registration.DoesNotExist:
+        logger.error(
+            "Registration %s not found for payment_intent.succeeded", registration_id
+        )
+        return
+
+    # Idempotency: skip if already confirmed
+    if reg.status == "confirmed":
+        logger.info("Registration %d already confirmed, skipping", reg.id)
+        return
+
+    reg.status = "confirmed"
+    reg.save()
+    logger.info(
+        "Registration %d confirmed: %s for %s",
+        reg.id, reg.attendee.email, reg.event.title,
+    )
+
+    # Send confirmation email and add to MailerLite
+    from api.services.emails import send_registration_confirmation
+    send_registration_confirmation(reg)
+
+    # Capacity warning
+    confirmed_count = Registration.objects.filter(
+        event=reg.event, status="confirmed"
+    ).count()
+    if confirmed_count > reg.event.capacity:
+        logger.critical(
+            "OVER CAPACITY: event=%d has %d confirmed (cap=%d)",
+            reg.event.id, confirmed_count, reg.event.capacity,
+        )
+
+
+def _handle_payment_canceled(payment_intent):
+    """Handle canceled/expired payment: mark expired, promote waitlisted."""
+    registration_id = payment_intent.get("metadata", {}).get("registration_id")
+    if not registration_id:
+        return
+
+    try:
+        reg = Registration.objects.select_related("attendee", "event").get(
+            id=registration_id
+        )
+    except Registration.DoesNotExist:
+        return
+
+    if reg.status != "pending":
+        logger.info(
+            "payment_intent.canceled for registration %d but status is %s, skipping",
+            reg.id, reg.status,
+        )
+        return
+
+    reg.status = "expired"
+    reg.save()
+    logger.info(
+        "Registration %d expired: %s for %s",
+        reg.id, reg.attendee.email, reg.event.title,
+    )
+
+    from api.services.emails import send_payment_expired
+    send_payment_expired(reg)
+
+    # Promote the next waitlisted person of the same gender
+    _try_promote_waitlisted(reg.event, reg.attendee.gender)
+
+
+def _try_promote_waitlisted(event, gender):
+    """Promote the longest-waiting waitlisted registration for the given event and gender."""
+    waitlisted = (
+        Registration.objects.filter(
+            event=event, status="waitlisted", attendee__gender=gender
+        )
+        .select_related("attendee")
+        .order_by("created_at")
+        .first()
+    )
+    if not waitlisted:
+        return
+
+    # Verify capacity is still available
+    if not _check_capacity(event, gender):
+        return
+
+    # Create PaymentIntent for promoted person
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    amount = _get_price_cents(gender)
+    intent = stripe.PaymentIntent.create(
+        amount=amount,
+        currency="usd",
+        metadata={
+            "registration_id": str(waitlisted.id),
+            "event_id": str(event.id),
+        },
+    )
+
+    waitlisted.status = "pending"
+    waitlisted.payment_intent_id = intent.id
+    waitlisted.save()
+    logger.info(
+        "Auto-promoted registration %d: %s (pi=%s)",
+        waitlisted.id, waitlisted.attendee.email, intent.id,
+    )
+
+    from api.services.emails import send_waitlist_promotion
+    send_waitlist_promotion(waitlisted)
+
+
+@api.get(
+    "/registrations/{registration_id}/payment/",
+    auth=None,
+    response={200: RegistrationPaymentOut, 404: ErrorOut, 409: ErrorOut},
+)
+def get_registration_payment(request: HttpRequest, registration_id: int):
+    """Retrieve the PaymentIntent client_secret for a pending registration.
+
+    Used by the frontend when a promoted-from-waitlist user follows their email link.
+    """
+    try:
+        reg = Registration.objects.select_related("attendee").get(id=registration_id)
+    except Registration.DoesNotExist:
+        return 404, {"detail": "Registration not found"}
+
+    if reg.status != "pending":
+        return 409, {"detail": f"Registration is {reg.status}, not pending"}
+
+    if not reg.payment_intent_id:
+        return 409, {"detail": "No payment intent for this registration"}
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    intent = stripe.PaymentIntent.retrieve(reg.payment_intent_id)
+    amount = _get_price_cents(reg.attendee.gender)
+
+    return 200, {
+        "client_secret": intent.client_secret,
+        "registration_id": reg.id,
+        "amount": amount,
+    }
 
 
 @api.post("/subscribe/", auth=None)
@@ -352,6 +553,7 @@ def admin_event_stats(request: HttpRequest, event_id: int):
     total = regs.count()
     confirmed = regs.filter(status="confirmed").count()
     pending = regs.filter(status="pending").count()
+    waitlisted = regs.filter(status="waitlisted").count()
     confirmed_regs = regs.filter(status="confirmed")
     male_count = confirmed_regs.filter(attendee__gender="male").count()
     female_count = confirmed_regs.filter(attendee__gender="female").count()
@@ -360,6 +562,7 @@ def admin_event_stats(request: HttpRequest, event_id: int):
         "total_registrations": total,
         "confirmed": confirmed,
         "pending": pending,
+        "waitlisted": waitlisted,
         "male_count": male_count,
         "female_count": female_count,
         "revenue": revenue,

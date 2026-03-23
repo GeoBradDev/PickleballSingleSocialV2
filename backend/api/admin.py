@@ -5,7 +5,7 @@ from .models import Attendee, EmailLog, Event, Match, MatchSubmission, Registrat
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ("title", "age_group", "event_date", "capacity", "status", "created_at")
+    list_display = ("title", "age_group", "event_date", "capacity", "capacity_male", "capacity_female", "status", "created_at")
     list_filter = ("status", "age_group")
 
 

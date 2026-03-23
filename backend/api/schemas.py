@@ -33,6 +33,18 @@ class PaymentIntentOut(Schema):
     registration_id: int
 
 
+class RegisterResponseOut(Schema):
+    registration_id: int
+    status: str  # "pending" or "waitlisted"
+    client_secret: str | None = None
+
+
+class RegistrationPaymentOut(Schema):
+    client_secret: str
+    registration_id: int
+    amount: int
+
+
 class ErrorOut(Schema):
     detail: str
 
@@ -62,6 +74,7 @@ class EventStatsOut(Schema):
     total_registrations: int
     confirmed: int
     pending: int
+    waitlisted: int
     male_count: int
     female_count: int
     revenue: int

@@ -19,8 +19,22 @@ class Event(models.Model):
     age_group = models.CharField(max_length=10, choices=AGE_GROUP_CHOICES)
     event_date = models.DateTimeField()
     capacity = models.PositiveIntegerField(default=32)
+    capacity_male = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Max male spots. Defaults to capacity / 2."
+    )
+    capacity_female = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Max female spots. Defaults to capacity / 2."
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def effective_capacity_male(self):
+        return self.capacity_male if self.capacity_male is not None else self.capacity // 2
+
+    @property
+    def effective_capacity_female(self):
+        return self.capacity_female if self.capacity_female is not None else self.capacity // 2
 
     def __str__(self):
         return f"{self.title} ({self.event_date:%Y-%m-%d})"
@@ -58,7 +72,9 @@ class Attendee(models.Model):
 class Registration(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
+        ("waitlisted", "Waitlisted"),
         ("confirmed", "Confirmed"),
+        ("expired", "Expired"),
         ("cancelled", "Cancelled"),
     ]
 

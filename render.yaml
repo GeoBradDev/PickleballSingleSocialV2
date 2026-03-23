@@ -1,0 +1,59 @@
+databases:
+  - name: pickleballsinglessocial-db
+    plan: free
+    databaseName: pickleball
+    user: pickleball
+
+services:
+  - type: web
+    name: pickleballsinglessocial-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    region: oregon
+    branch: prod
+    buildCommand: ./build.sh
+    startCommand: export PATH="$HOME/.local/bin:$PATH" && uv run gunicorn PickleballSinglesSocialV2.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pickleballsinglessocial-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.14.0"
+      - key: ALLOWED_HOSTS
+        value: pickleballsinglessocial-api.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://pickleballsinglessocial.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://pickleballsinglessocial.onrender.com
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: MAILERLITE_API_KEY
+        sync: false
+
+  - type: web
+    name: pickleballsinglessocial
+    runtime: static
+    plan: free
+    rootDir: frontend
+    branch: prod
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://pickleballsinglessocial-api.onrender.com
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
