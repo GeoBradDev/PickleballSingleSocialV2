@@ -1,6 +1,6 @@
 databases:
   - name: pickleballsinglessocial-db
-    plan: basic
+    plan: basic-256mb
     databaseName: pickleball
     user: pickleball
 
