@@ -149,7 +149,7 @@ function RegisterPage() {
             {event.title}
           </Typography>
           <Typography color="text.secondary">
-            {formatDate(event.date)}
+            {formatDate(event.event_date)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Ages {event.age_label}
