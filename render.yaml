@@ -37,6 +37,10 @@ services:
         sync: false
       - key: MAILERLITE_API_KEY
         sync: false
+      - key: MAILERLITE_GROUP_25_45
+        sync: false
+      - key: MAILERLITE_GROUP_45_PLUS
+        sync: false
 
   - type: cron
     name: Pickleball Singles Social CRON Job
@@ -47,7 +51,7 @@ services:
     branch: prod
     buildCommand: ./build.sh
     schedule: "0 * * * *"
-    startCommand: python manage.py expire_stale_registrations
+    startCommand: python manage.py expire_stale_registrations; python manage.py send_marketing_emails
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -62,6 +66,12 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: MAILERLITE_API_KEY
+        sync: false
+      - key: MAILERLITE_GROUP_25_45
+        sync: false
+      - key: MAILERLITE_GROUP_45_PLUS
         sync: false
 
   - type: web

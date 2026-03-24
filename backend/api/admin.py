@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Attendee, EmailLog, Event, Match, MatchSubmission, Registration
+from .models import Attendee, EmailLog, Event, MarketingEmailLog, Match, MatchSubmission, Registration
 
 
 @admin.register(Event)
@@ -34,3 +34,8 @@ class MatchAdmin(admin.ModelAdmin):
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
     list_display = ("attendee", "event", "email_type", "sent_at")
+
+
+@admin.register(MarketingEmailLog)
+class MarketingEmailLogAdmin(admin.ModelAdmin):
+    list_display = ("event", "email_key", "sent_at", "subscriber_count")

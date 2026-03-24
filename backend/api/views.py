@@ -134,7 +134,17 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
     # Add to MailerLite subscriber list (non-critical, don't block registration)
     try:
         from api.services.mailerlite import add_subscriber
-        add_subscriber(attendee.email, attendee.first_name, attendee.last_name)
+        group_ids = []
+        group_id = settings.MAILERLITE_AGE_GROUPS.get(event.age_label)
+        if group_id:
+            group_ids.append(group_id)
+        add_subscriber(
+            attendee.email,
+            attendee.first_name,
+            attendee.last_name,
+            fields={"age": attendee.age},
+            group_ids=group_ids or None,
+        )
     except Exception:
         logger.exception("Failed to add subscriber to MailerLite: %s", attendee.email)
 

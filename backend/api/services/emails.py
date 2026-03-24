@@ -1,5 +1,140 @@
 from ..models import EmailLog
 
+# Marketing email schedule: (email_key, days_before_event)
+MARKETING_SCHEDULE = [
+    ("marketing_announcement", 28),
+    ("marketing_registration_open", 21),
+    ("marketing_spots_filling", 14),
+    ("marketing_one_week", 7),
+    ("marketing_last_chance", 3),
+]
+
+MARKETING_TEMPLATES = {
+    "marketing_announcement": {
+        "subject": "New Event: Pickleball Singles Social ({age_label}) - {date}",
+        "html": """
+        <h2>New Event Announced!</h2>
+        <p>We're excited to announce our next Pickleball Singles Social
+        for ages <strong>{age_label}</strong> on <strong>{date}</strong>!</p>
+        <p>This is a fun, social event where you'll meet other singles
+        who love pickleball. Space is limited to {capacity} players to keep
+        things intimate and well-organized.</p>
+        <p>Registration opens soon. Mark your calendar!</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           View Event Details</a></p>
+        """,
+    },
+    "marketing_registration_open": {
+        "subject": "Registration Open: {age_label} Singles Social on {date}",
+        "html": """
+        <h2>Registration Is Open!</h2>
+        <p>Registration is now open for the <strong>{age_label}</strong>
+        Pickleball Singles Social on <strong>{date}</strong>.</p>
+        <p>We have {capacity} spots available and they tend to fill up
+        quickly. Don't miss out!</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Register Now</a></p>
+        """,
+    },
+    "marketing_spots_filling": {
+        "subject": "Spots Filling Up: {age_label} Singles Social on {date}",
+        "html": """
+        <h2>Spots Are Filling Up!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social on
+        <strong>{date}</strong> is filling up fast.</p>
+        <p>If you've been thinking about joining, now is the time to
+        secure your spot before we're full.</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Register Before It's Full</a></p>
+        """,
+        "full_subject": "Sold Out (Waitlist Open): {age_label} Singles Social on {date}",
+        "full_html": """
+        <h2>We're Sold Out!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social on
+        <strong>{date}</strong> has filled all {capacity} spots.</p>
+        <p>But don't worry, you can still join the waitlist. If a spot opens
+        up, we'll let you know right away.</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Join the Waitlist</a></p>
+        """,
+    },
+    "marketing_one_week": {
+        "subject": "One Week Away: {age_label} Pickleball Singles Social",
+        "html": """
+        <h2>One Week Away!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social is
+        just one week away on <strong>{date}</strong>.</p>
+        <p>There are still a few spots left. This is your chance to meet
+        other pickleball-loving singles in a fun, organized setting.</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Grab Your Spot</a></p>
+        """,
+        "full_subject": "One Week Away (Waitlist Open): {age_label} Pickleball Singles Social",
+        "full_html": """
+        <h2>One Week Away!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social is
+        just one week away on <strong>{date}</strong>.</p>
+        <p>All {capacity} spots are taken, but spots do open up. Join the
+        waitlist and you'll be first in line if someone cancels.</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Join the Waitlist</a></p>
+        """,
+    },
+    "marketing_last_chance": {
+        "subject": "Last Chance: {age_label} Singles Social This {weekday}",
+        "html": """
+        <h2>Last Chance!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social is
+        this <strong>{weekday}</strong>, {date}.</p>
+        <p>This is your last chance to register. Once spots are gone,
+        they're gone!</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Register Now</a></p>
+        """,
+        "full_subject": "Waitlist Open: {age_label} Singles Social This {weekday}",
+        "full_html": """
+        <h2>Waitlist Still Open!</h2>
+        <p>The <strong>{age_label}</strong> Pickleball Singles Social is
+        this <strong>{weekday}</strong>, {date}.</p>
+        <p>We're fully booked, but cancellations happen. Join the waitlist
+        for a chance to get in.</p>
+        <p><a href="{register_url}"
+           style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
+           Join the Waitlist</a></p>
+        """,
+    },
+}
+
+
+def render_marketing_email(email_key, event, full=False):
+    """Render a marketing email template with event data. Returns (subject, html).
+
+    If full=True and the template has full_subject/full_html variants,
+    those are used instead (waitlist messaging).
+    """
+    template = MARKETING_TEMPLATES[email_key]
+    context = {
+        "age_label": event.age_label,
+        "date": event.event_date.strftime("%B %-d, %Y"),
+        "weekday": event.event_date.strftime("%A"),
+        "capacity": str(event.capacity),
+        "register_url": f"https://pickleballsinglessocial.com/events/{event.id}",
+    }
+    if full and "full_subject" in template:
+        subject = template["full_subject"].format(**context)
+        html = template["full_html"].format(**context)
+    else:
+        subject = template["subject"].format(**context)
+        html = template["html"].format(**context)
+    return subject, html
+
 
 def _already_sent(attendee, event, email_type):
     return EmailLog.objects.filter(
