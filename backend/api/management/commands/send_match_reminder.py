@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -9,9 +11,9 @@ class Command(BaseCommand):
     help = "Send match form reminder emails to confirmed registrations that have not submitted."
 
     def handle(self, *args, **options):
-        today = timezone.now().date()
-        events = Event.objects.filter(event_date__date=today)
-        self.stdout.write(f"Found {events.count()} event(s) that happened today.")
+        yesterday = (timezone.now() - timedelta(days=1)).date()
+        events = Event.objects.filter(event_date__date=yesterday)
+        self.stdout.write(f"Found {events.count()} event(s) from yesterday.")
         count = 0
         for event in events:
             registrations = Registration.objects.filter(
