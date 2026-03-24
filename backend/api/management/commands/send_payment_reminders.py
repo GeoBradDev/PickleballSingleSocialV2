@@ -12,9 +12,9 @@ class Command(BaseCommand):
         self.stdout.write(f"Found {events.count()} open event(s).")
         count = 0
         for event in events:
-            registrations = Registration.objects.filter(
-                event=event, status="pending"
-            ).select_related("attendee", "event")
+            registrations = Registration.objects.filter(event=event, status="pending").select_related(
+                "attendee", "event"
+            )
             for reg in registrations:
                 send_payment_reminder(reg)
                 count += 1

@@ -2,13 +2,13 @@
 
 from datetime import timedelta
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from api.models import MarketingEmailLog, Match, MatchSubmission, Registration
+from api.models import MarketingEmailLog, Match, Registration
 from api.tests.helpers import (
     make_attendee,
     make_event,
@@ -310,9 +310,7 @@ class ExpireStaleRegistrationsTests(TestCase):
     @patch("api.management.commands.expire_stale_registrations._try_promote_waitlisted")
     @patch("api.management.commands.expire_stale_registrations.stripe.PaymentIntent.cancel")
     @patch("api.services.emails.send_payment_expired")
-    def test_stale_pending_registration_expired(
-        self, mock_send_expired, mock_cancel, mock_promote
-    ):
+    def test_stale_pending_registration_expired(self, mock_send_expired, mock_cancel, mock_promote):
         event = make_event(status="open")
         attendee = make_attendee(1)
         reg = make_registration(
@@ -322,9 +320,7 @@ class ExpireStaleRegistrationsTests(TestCase):
             payment_intent_id="pi_stale123",
         )
         # Force created_at to be >24h ago
-        Registration.objects.filter(pk=reg.pk).update(
-            created_at=timezone.now() - timedelta(hours=25)
-        )
+        Registration.objects.filter(pk=reg.pk).update(created_at=timezone.now() - timedelta(hours=25))
 
         out = StringIO()
         call_command("expire_stale_registrations", stdout=out)
@@ -337,9 +333,7 @@ class ExpireStaleRegistrationsTests(TestCase):
     @patch("api.management.commands.expire_stale_registrations._try_promote_waitlisted")
     @patch("api.management.commands.expire_stale_registrations.stripe.PaymentIntent.cancel")
     @patch("api.services.emails.send_payment_expired")
-    def test_recent_pending_registration_not_affected(
-        self, mock_send_expired, mock_cancel, mock_promote
-    ):
+    def test_recent_pending_registration_not_affected(self, mock_send_expired, mock_cancel, mock_promote):
         event = make_event(status="open")
         reg = make_registration(
             event=event,
@@ -359,9 +353,7 @@ class ExpireStaleRegistrationsTests(TestCase):
     @patch("api.management.commands.expire_stale_registrations._try_promote_waitlisted")
     @patch("api.management.commands.expire_stale_registrations.stripe.PaymentIntent.cancel")
     @patch("api.services.emails.send_payment_expired")
-    def test_dry_run_does_not_change_status(
-        self, mock_send_expired, mock_cancel, mock_promote
-    ):
+    def test_dry_run_does_not_change_status(self, mock_send_expired, mock_cancel, mock_promote):
         event = make_event(status="open")
         reg = make_registration(
             event=event,
@@ -369,9 +361,7 @@ class ExpireStaleRegistrationsTests(TestCase):
             status="pending",
             payment_intent_id="pi_dry",
         )
-        Registration.objects.filter(pk=reg.pk).update(
-            created_at=timezone.now() - timedelta(hours=25)
-        )
+        Registration.objects.filter(pk=reg.pk).update(created_at=timezone.now() - timedelta(hours=25))
 
         out = StringIO()
         call_command("expire_stale_registrations", "--dry-run", stdout=out)
@@ -389,9 +379,7 @@ class SendMarketingEmailsTests(TestCase):
     @patch("api.management.commands.send_marketing_emails.create_campaign")
     @patch("api.management.commands.send_marketing_emails.get_total_subscriber_count", return_value=100)
     @patch("api.management.commands.send_marketing_emails.render_marketing_email")
-    def test_open_event_14_days_away_sends_spots_filling(
-        self, mock_render, mock_count, mock_campaign
-    ):
+    def test_open_event_14_days_away_sends_spots_filling(self, mock_render, mock_count, mock_campaign):
         event = make_event(
             event_date=timezone.now() + timedelta(days=14),
             status="open",
@@ -403,9 +391,7 @@ class SendMarketingEmailsTests(TestCase):
         call_command("send_marketing_emails", stdout=out)
 
         self.assertTrue(mock_campaign.called)
-        self.assertTrue(
-            MarketingEmailLog.objects.filter(event=event).exists()
-        )
+        self.assertTrue(MarketingEmailLog.objects.filter(event=event).exists())
 
     @patch("api.management.commands.send_marketing_emails.create_campaign")
     @patch("api.management.commands.send_marketing_emails.get_total_subscriber_count", return_value=100)
@@ -417,14 +403,10 @@ class SendMarketingEmailsTests(TestCase):
         )
         # Pre-populate logs for all emails that would fire at <=14 days
         for key in ("marketing_spots_filling", "marketing_one_week", "marketing_last_chance"):
-            MarketingEmailLog.objects.create(
-                event=event, email_key=key, subscriber_count=100
-            )
+            MarketingEmailLog.objects.create(event=event, email_key=key, subscriber_count=100)
         # Also mark the earlier ones that would match (days_until <= days_before)
         for key in ("marketing_announcement", "marketing_registration_open"):
-            MarketingEmailLog.objects.create(
-                event=event, email_key=key, subscriber_count=100
-            )
+            MarketingEmailLog.objects.create(event=event, email_key=key, subscriber_count=100)
 
         out = StringIO()
         call_command("send_marketing_emails", "--verbosity=2", stdout=out)

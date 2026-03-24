@@ -21,9 +21,9 @@ class Command(BaseCommand):
         self.stdout.write(f"Found {events.count()} event(s) within 3 days.")
         count = 0
         for event in events:
-            registrations = Registration.objects.filter(
-                event=event, status="confirmed"
-            ).select_related("attendee", "event")
+            registrations = Registration.objects.filter(event=event, status="confirmed").select_related(
+                "attendee", "event"
+            )
             for reg in registrations:
                 send_reminder(reg)
                 count += 1

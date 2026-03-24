@@ -10,15 +10,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Find completed events that have no Match records yet
-        events = Event.objects.filter(status="completed").exclude(
-            matches__isnull=False
-        )
+        events = Event.objects.filter(status="completed").exclude(matches__isnull=False)
         self.stdout.write(f"Found {events.count()} completed event(s) to process.")
         total_matches = 0
         for event in events:
-            submissions = MatchSubmission.objects.filter(event=event).prefetch_related(
-                "selected_attendees"
-            )
+            submissions = MatchSubmission.objects.filter(event=event).prefetch_related("selected_attendees")
             # Build a dict: registration_id -> set of selected registration_ids
             selections = {}
             for sub in submissions:

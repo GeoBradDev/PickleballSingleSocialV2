@@ -6,13 +6,10 @@ from django.test import TestCase
 from django.utils import timezone
 
 from api.models import (
-    Attendee,
     EmailLog,
     Event,
     MarketingEmailLog,
     Match,
-    MatchSubmission,
-    Registration,
 )
 from api.tests.helpers import (
     make_attendee,
@@ -69,9 +66,7 @@ class EventModelTests(TestCase):
 # ------------------------------------------------------------------
 class AttendeeModelTests(TestCase):
     def test_str(self):
-        attendee = make_attendee(
-            first_name="Jane", last_name="Doe", email="jane@example.com"
-        )
+        attendee = make_attendee(first_name="Jane", last_name="Doe", email="jane@example.com")
         self.assertEqual(str(attendee), "Jane Doe (jane@example.com)")
 
     def test_unique_email_constraint(self):
@@ -166,23 +161,15 @@ class EmailLogModelTests(TestCase):
     def test_str(self):
         event = make_event(event_date=EVENT_DATE)
         attendee = make_attendee()
-        log = EmailLog.objects.create(
-            attendee=attendee, event=event, email_type="confirmation"
-        )
-        self.assertEqual(
-            str(log), f"confirmation to {attendee} for {event}"
-        )
+        log = EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
+        self.assertEqual(str(log), f"confirmation to {attendee} for {event}")
 
     def test_unique_together_attendee_event_email_type(self):
         event = make_event()
         attendee = make_attendee()
-        EmailLog.objects.create(
-            attendee=attendee, event=event, email_type="confirmation"
-        )
+        EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
         with self.assertRaises(IntegrityError):
-            EmailLog.objects.create(
-                attendee=attendee, event=event, email_type="confirmation"
-            )
+            EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
 
 
 # ------------------------------------------------------------------
@@ -191,9 +178,7 @@ class EmailLogModelTests(TestCase):
 class MarketingEmailLogModelTests(TestCase):
     def test_str(self):
         event = make_event(event_date=EVENT_DATE)
-        log = MarketingEmailLog.objects.create(
-            event=event, email_key="launch_blast", subscriber_count=150
-        )
+        log = MarketingEmailLog.objects.create(event=event, email_key="launch_blast", subscriber_count=150)
         self.assertEqual(str(log), f"launch_blast for {event}")
 
     def test_unique_together_event_email_key(self):

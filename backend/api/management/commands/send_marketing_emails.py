@@ -12,9 +12,7 @@ logger = logging.getLogger("api.commands.send_marketing_emails")
 
 def _is_event_full(event):
     """Check if an event has reached capacity (confirmed + pending)."""
-    reserved = Registration.objects.filter(
-        event=event, status__in=("confirmed", "pending")
-    ).count()
+    reserved = Registration.objects.filter(event=event, status__in=("confirmed", "pending")).count()
     return reserved >= event.capacity
 
 
@@ -25,11 +23,7 @@ class Command(BaseCommand):
         now = timezone.now()
         today = now.date()
 
-        event = (
-            Event.objects.filter(status="open", event_date__gt=now)
-            .order_by("event_date")
-            .first()
-        )
+        event = Event.objects.filter(status="open", event_date__gt=now).order_by("event_date").first()
         if not event:
             if options["verbosity"] >= 2:
                 self.stdout.write("No upcoming open events found.")
@@ -46,8 +40,7 @@ class Command(BaseCommand):
             if days_before - days_until > 3:
                 if options["verbosity"] >= 2:
                     self.stdout.write(
-                        f"  Skipping {email_key}: too late "
-                        f"(intended {days_before}d before, now {days_until}d before)"
+                        f"  Skipping {email_key}: too late (intended {days_before}d before, now {days_until}d before)"
                     )
                 continue
 
@@ -73,10 +66,7 @@ class Command(BaseCommand):
                     subscriber_count=subscriber_count,
                 )
                 self.stdout.write(
-                    self.style.SUCCESS(
-                        f"  Sent {email_key} for event {event} "
-                        f"to {subscriber_count} subscribers"
-                    )
+                    self.style.SUCCESS(f"  Sent {email_key} for event {event} to {subscriber_count} subscribers")
                 )
             except Exception:
                 logger.exception("Failed to send marketing email %s for event %s", email_key, event)

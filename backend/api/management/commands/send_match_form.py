@@ -14,9 +14,9 @@ class Command(BaseCommand):
         self.stdout.write(f"Found {events.count()} event(s) that happened today.")
         count = 0
         for event in events:
-            registrations = Registration.objects.filter(
-                event=event, status="confirmed"
-            ).select_related("attendee", "event")
+            registrations = Registration.objects.filter(event=event, status="confirmed").select_related(
+                "attendee", "event"
+            )
             for reg in registrations:
                 send_match_form_link(reg)
                 count += 1

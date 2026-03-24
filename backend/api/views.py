@@ -1,4 +1,3 @@
-import json
 import logging
 
 import stripe
@@ -23,11 +22,9 @@ from .schemas import (
     MatchFormSubmissionIn,
     MatchOut,
     MatchSubmissionOut,
-    PaymentIntentOut,
     RegisterResponseOut,
     RegistrationDetailOut,
     RegistrationIn,
-    RegistrationOut,
     RegistrationPaymentOut,
     SubscribeIn,
     TriggerOut,
@@ -83,9 +80,7 @@ def _check_capacity(event, gender):
     Women are only limited by total capacity.
     Men are limited by total capacity AND the max_male_ratio.
     """
-    reserved = Registration.objects.filter(
-        event=event, status__in=("confirmed", "pending")
-    )
+    reserved = Registration.objects.filter(event=event, status__in=("confirmed", "pending"))
     total_reserved = reserved.count()
     if total_reserved >= event.capacity:
         return False
@@ -115,7 +110,10 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
         if event.max_age is None:
             msg = f"This event is for ages {event.age_label}. You must be {event.min_age} or older to register."
         else:
-            msg = f"This event is for ages {event.age_label}. You must be between {event.min_age} and {event.max_age} to register."
+            msg = (
+                f"This event is for ages {event.age_label}."
+                f" You must be between {event.min_age} and {event.max_age} to register."
+            )
         return 400, {"detail": msg}
 
     # Get or create attendee by email, updating other fields
@@ -134,6 +132,7 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
     # Add to MailerLite subscriber list (non-critical, don't block registration)
     try:
         from api.services.mailerlite import add_subscriber
+
         group_ids = []
         group_id = settings.MAILERLITE_AGE_GROUPS.get(event.age_label)
         if group_id:
@@ -184,9 +183,13 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
             registration.save()
             logger.info(
                 "Registration %d waitlisted: %s for %s (gender=%s)",
-                registration.id, attendee.email, event.title, attendee.gender,
+                registration.id,
+                attendee.email,
+                event.title,
+                attendee.gender,
             )
             from api.services.emails import send_waitlist_notification
+
             send_waitlist_notification(registration)
             return 200, {"registration_id": registration.id, "status": "waitlisted"}
 
@@ -208,7 +211,10 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
         registration.save()
         logger.info(
             "Registration %d pending: %s for %s (pi=%s)",
-            registration.id, attendee.email, event.title, intent.id,
+            registration.id,
+            attendee.email,
+            event.title,
+            intent.id,
         )
 
     # A new registration may shift the ratio enough to promote waitlisted users
@@ -230,9 +236,7 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE", "")
 
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-        )
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
     except ValueError:
         logger.warning("Stripe webhook: invalid payload")
         return HttpResponse("Invalid payload", status=400)
@@ -259,13 +263,9 @@ def _handle_payment_succeeded(payment_intent):
         return
 
     try:
-        reg = Registration.objects.select_related("attendee", "event").get(
-            id=registration_id
-        )
+        reg = Registration.objects.select_related("attendee", "event").get(id=registration_id)
     except Registration.DoesNotExist:
-        logger.error(
-            "Registration %s not found for payment_intent.succeeded", registration_id
-        )
+        logger.error("Registration %s not found for payment_intent.succeeded", registration_id)
         return
 
     # Idempotency: skip if already confirmed
@@ -277,21 +277,24 @@ def _handle_payment_succeeded(payment_intent):
     reg.save()
     logger.info(
         "Registration %d confirmed: %s for %s",
-        reg.id, reg.attendee.email, reg.event.title,
+        reg.id,
+        reg.attendee.email,
+        reg.event.title,
     )
 
     # Send confirmation email and add to MailerLite
     from api.services.emails import send_registration_confirmation
+
     send_registration_confirmation(reg)
 
     # Capacity warning
-    confirmed_count = Registration.objects.filter(
-        event=reg.event, status="confirmed"
-    ).count()
+    confirmed_count = Registration.objects.filter(event=reg.event, status="confirmed").count()
     if confirmed_count > reg.event.capacity:
         logger.critical(
             "OVER CAPACITY: event=%d has %d confirmed (cap=%d)",
-            reg.event.id, confirmed_count, reg.event.capacity,
+            reg.event.id,
+            confirmed_count,
+            reg.event.capacity,
         )
 
 
@@ -302,16 +305,15 @@ def _handle_payment_canceled(payment_intent):
         return
 
     try:
-        reg = Registration.objects.select_related("attendee", "event").get(
-            id=registration_id
-        )
+        reg = Registration.objects.select_related("attendee", "event").get(id=registration_id)
     except Registration.DoesNotExist:
         return
 
     if reg.status != "pending":
         logger.info(
             "payment_intent.canceled for registration %d but status is %s, skipping",
-            reg.id, reg.status,
+            reg.id,
+            reg.status,
         )
         return
 
@@ -319,10 +321,13 @@ def _handle_payment_canceled(payment_intent):
     reg.save()
     logger.info(
         "Registration %d expired: %s for %s",
-        reg.id, reg.attendee.email, reg.event.title,
+        reg.id,
+        reg.attendee.email,
+        reg.event.title,
     )
 
     from api.services.emails import send_payment_expired
+
     send_payment_expired(reg)
 
     # Promote the next waitlisted person of the same gender
@@ -335,9 +340,7 @@ def _try_promote_waitlisted(event, gender):
         event = Event.objects.select_for_update().get(id=event.id)
 
         waitlisted = (
-            Registration.objects.filter(
-                event=event, status="waitlisted", attendee__gender=gender
-            )
+            Registration.objects.filter(event=event, status="waitlisted", attendee__gender=gender)
             .select_related("attendee")
             .order_by("created_at")
             .first()
@@ -366,10 +369,13 @@ def _try_promote_waitlisted(event, gender):
         waitlisted.save()
         logger.info(
             "Auto-promoted registration %d: %s (pi=%s)",
-            waitlisted.id, waitlisted.attendee.email, intent.id,
+            waitlisted.id,
+            waitlisted.attendee.email,
+            intent.id,
         )
 
     from api.services.emails import send_waitlist_promotion
+
     send_waitlist_promotion(waitlisted)
 
 
@@ -417,6 +423,7 @@ def subscribe(request: HttpRequest, payload: SubscribeIn):
 # Auth endpoints (public, no staff_auth required)
 # ---------------------------------------------------------------------------
 
+
 @api.post("/auth/login/", auth=None)
 def auth_login(request: HttpRequest, payload: LoginIn):
     user = authenticate(request, username=payload.username, password=payload.password)
@@ -447,9 +454,7 @@ def auth_me(request: HttpRequest):
 @api.get("/match-form/{match_token}/", auth=None, response={200: MatchFormDataOut, 404: ErrorOut, 410: ErrorOut})
 def get_match_form(request: HttpRequest, match_token: str):
     try:
-        registration = Registration.objects.select_related("attendee", "event").get(
-            match_token=match_token
-        )
+        registration = Registration.objects.select_related("attendee", "event").get(match_token=match_token)
     except Registration.DoesNotExist:
         return 404, {"detail": "Not found"}
 
@@ -482,9 +487,7 @@ def get_match_form(request: HttpRequest, match_token: str):
     submission = MatchSubmission.objects.filter(submitted_by=registration).first()
     if submission:
         already_submitted = True
-        previous_selections = list(
-            submission.selected_attendees.values_list("id", flat=True)
-        )
+        previous_selections = list(submission.selected_attendees.values_list("id", flat=True))
 
     return 200, MatchFormDataOut(
         event_title=event.title,
@@ -496,12 +499,14 @@ def get_match_form(request: HttpRequest, match_token: str):
     )
 
 
-@api.post("/match-form/{match_token}/", auth=None, response={200: ErrorOut, 404: ErrorOut, 409: ErrorOut, 410: ErrorOut})
+@api.post(
+    "/match-form/{match_token}/",
+    auth=None,
+    response={200: ErrorOut, 404: ErrorOut, 409: ErrorOut, 410: ErrorOut},
+)
 def submit_match_form(request: HttpRequest, match_token: str, payload: MatchFormSubmissionIn):
     try:
-        registration = Registration.objects.select_related("event").get(
-            match_token=match_token
-        )
+        registration = Registration.objects.select_related("event").get(match_token=match_token)
     except Registration.DoesNotExist:
         return 404, {"detail": "Not found"}
 
@@ -568,11 +573,7 @@ def admin_delete_event(request: HttpRequest, event_id: int):
 def admin_event_registrations(request: HttpRequest, event_id: int):
     if not Event.objects.filter(id=event_id).exists():
         return 404, {"detail": "Event not found"}
-    registrations = (
-        Registration.objects.filter(event_id=event_id)
-        .select_related("attendee")
-        .order_by("-created_at")
-    )
+    registrations = Registration.objects.filter(event_id=event_id).select_related("attendee").order_by("-created_at")
     results = []
     for reg in registrations:
         results.append(
@@ -666,10 +667,7 @@ def admin_event_match_submissions(request: HttpRequest, event_id: int):
     results = []
     for sub in submissions:
         submitter = sub.submitted_by.attendee
-        selected = [
-            f"{sel.attendee.first_name} {sel.attendee.last_name[0]}."
-            for sel in sub.selected_attendees.all()
-        ]
+        selected = [f"{sel.attendee.first_name} {sel.attendee.last_name[0]}." for sel in sub.selected_attendees.all()]
         results.append(
             {
                 "id": sub.id,
@@ -693,6 +691,7 @@ def admin_trigger_command(request: HttpRequest, event_id: int, command: str):
     if command not in allowed_commands:
         return 400, {"detail": f"Unknown command. Allowed: {', '.join(allowed_commands)}"}
     from django.core.management import call_command
+
     call_command(command)
     return 200, {"detail": f"Successfully ran {command}"}
 

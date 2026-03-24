@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
-from api.models import Attendee, Event, Match, MatchSubmission, Registration
+from api.models import Event, MatchSubmission
 from api.tests.helpers import (
     make_attendee,
     make_event,
@@ -15,7 +15,6 @@ from api.tests.helpers import (
     make_submission,
 )
 from api.views import _check_capacity, _get_price_cents
-
 
 # ---------------------------------------------------------------------------
 # Helper constants
@@ -178,8 +177,11 @@ class RegisterForEventTest(TestCase):
     @patch(MAILERLITE_ADD)
     def test_duplicate_confirmed(self, mock_ml):
         attendee = make_attendee(
-            first_name="Jane", last_name="Doe", email="jane@example.com",
-            gender="female", age=30,
+            first_name="Jane",
+            last_name="Doe",
+            email="jane@example.com",
+            gender="female",
+            age=30,
         )
         make_registration(event=self.event, attendee=attendee, status="confirmed")
         resp = self.client.post(
@@ -194,13 +196,16 @@ class RegisterForEventTest(TestCase):
     @patch(MAILERLITE_ADD)
     def test_duplicate_waitlisted(self, mock_ml):
         attendee = make_attendee(
-            first_name="Jane", last_name="Doe", email="jane@example.com",
-            gender="female", age=30,
+            first_name="Jane",
+            last_name="Doe",
+            email="jane@example.com",
+            gender="female",
+            age=30,
         )
         make_registration(event=self.event, attendee=attendee, status="waitlisted")
         resp = self.client.post(
             f"/api/events/{self.event.id}/register/",
-            data=json.dumps(payload := REG_PAYLOAD.copy()),
+            data=json.dumps(REG_PAYLOAD.copy()),
             content_type="application/json",
         )
         self.assertEqual(resp.status_code, 200)
@@ -211,12 +216,17 @@ class RegisterForEventTest(TestCase):
     @patch(STRIPE_PI_RETRIEVE, return_value=_stripe_retrieve_mock())
     def test_duplicate_pending_with_intent(self, mock_retrieve, mock_ml):
         attendee = make_attendee(
-            first_name="Jane", last_name="Doe", email="jane@example.com",
-            gender="female", age=30,
+            first_name="Jane",
+            last_name="Doe",
+            email="jane@example.com",
+            gender="female",
+            age=30,
         )
         make_registration(
-            event=self.event, attendee=attendee,
-            status="pending", payment_intent_id="pi_existing",
+            event=self.event,
+            attendee=attendee,
+            status="pending",
+            payment_intent_id="pi_existing",
         )
         resp = self.client.post(
             f"/api/events/{self.event.id}/register/",
@@ -339,7 +349,9 @@ class StripeWebhookTest(TestCase):
             },
         }
         resp = self.client.post(
-            self.url, data=b'{}', content_type="application/json",
+            self.url,
+            data=b"{}",
+            content_type="application/json",
             HTTP_STRIPE_SIGNATURE="sig",
         )
         self.assertEqual(resp.status_code, 200)
@@ -363,7 +375,9 @@ class StripeWebhookTest(TestCase):
             },
         }
         resp = self.client.post(
-            self.url, data=b'{}', content_type="application/json",
+            self.url,
+            data=b"{}",
+            content_type="application/json",
             HTTP_STRIPE_SIGNATURE="sig",
         )
         self.assertEqual(resp.status_code, 200)
@@ -373,16 +387,23 @@ class StripeWebhookTest(TestCase):
     @patch(STRIPE_WEBHOOK_CONSTRUCT, side_effect=ValueError("bad payload"))
     def test_invalid_payload(self, mock_construct):
         resp = self.client.post(
-            self.url, data=b'bad', content_type="application/json",
+            self.url,
+            data=b"bad",
+            content_type="application/json",
             HTTP_STRIPE_SIGNATURE="sig",
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Invalid payload", resp.content.decode())
 
-    @patch(STRIPE_WEBHOOK_CONSTRUCT, side_effect=__import__("stripe").error.SignatureVerificationError("bad sig", "sig"))
+    @patch(
+        STRIPE_WEBHOOK_CONSTRUCT,
+        side_effect=__import__("stripe").error.SignatureVerificationError("bad sig", "sig"),
+    )
     def test_invalid_signature(self, mock_construct):
         resp = self.client.post(
-            self.url, data=b'{}', content_type="application/json",
+            self.url,
+            data=b"{}",
+            content_type="application/json",
             HTTP_STRIPE_SIGNATURE="badsig",
         )
         self.assertEqual(resp.status_code, 400)
@@ -526,8 +547,10 @@ class GetRegistrationPaymentTest(TestCase):
         event = make_event()
         attendee = make_attendee(n=100, gender="female")
         reg = make_registration(
-            event=event, attendee=attendee,
-            status="pending", payment_intent_id="pi_abc",
+            event=event,
+            attendee=attendee,
+            status="pending",
+            payment_intent_id="pi_abc",
         )
         resp = self.client.get(f"/api/registrations/{reg.id}/payment/")
         self.assertEqual(resp.status_code, 200)
@@ -552,8 +575,10 @@ class GetRegistrationPaymentTest(TestCase):
         event = make_event()
         attendee = make_attendee(n=102)
         reg = make_registration(
-            event=event, attendee=attendee,
-            status="pending", payment_intent_id="",
+            event=event,
+            attendee=attendee,
+            status="pending",
+            payment_intent_id="",
         )
         resp = self.client.get(f"/api/registrations/{reg.id}/payment/")
         self.assertEqual(resp.status_code, 409)
@@ -585,9 +610,7 @@ class SubscribeTest(TestCase):
 
 class AuthLoginTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            "testadmin", password="testpass", is_staff=True
-        )
+        self.user = User.objects.create_user("testadmin", password="testpass", is_staff=True)
 
     def test_login_success(self):
         resp = self.client.post(
@@ -647,12 +670,16 @@ class GetMatchFormTest(TestCase):
         self.event = make_event(status="closed")
         self.female_attendee = make_attendee(n=200, gender="female")
         self.reg = make_registration(
-            event=self.event, attendee=self.female_attendee, status="confirmed",
+            event=self.event,
+            attendee=self.female_attendee,
+            status="confirmed",
         )
         # Create opposite-gender registrations
         self.male_attendee = make_attendee(n=201, gender="male")
         self.male_reg = make_registration(
-            event=self.event, attendee=self.male_attendee, status="confirmed",
+            event=self.event,
+            attendee=self.male_attendee,
+            status="confirmed",
         )
 
     def test_valid_token_closed_event(self):
@@ -709,11 +736,15 @@ class SubmitMatchFormTest(TestCase):
         self.event = make_event(status="closed")
         self.female_attendee = make_attendee(n=210, gender="female")
         self.reg = make_registration(
-            event=self.event, attendee=self.female_attendee, status="confirmed",
+            event=self.event,
+            attendee=self.female_attendee,
+            status="confirmed",
         )
         self.male_attendee = make_attendee(n=211, gender="male")
         self.male_reg = make_registration(
-            event=self.event, attendee=self.male_attendee, status="confirmed",
+            event=self.event,
+            attendee=self.male_attendee,
+            status="confirmed",
         )
 
     def test_successful_submission(self):
@@ -778,9 +809,7 @@ class AdminBaseTest(TestCase):
     def setUp(self):
         from django.contrib.auth.models import User
 
-        self.staff_user = User.objects.create_user(
-            "admin", password="pass", is_staff=True
-        )
+        self.staff_user = User.objects.create_user("admin", password="pass", is_staff=True)
         self.client.force_login(self.staff_user)
 
 
@@ -943,18 +972,14 @@ class AdminTriggerCommandTest(AdminBaseTest):
     @patch("django.core.management.call_command")
     def test_allowed_command(self, mock_call):
         event = make_event()
-        resp = self.client.post(
-            f"/api/admin/events/{event.id}/trigger/process_matches/"
-        )
+        resp = self.client.post(f"/api/admin/events/{event.id}/trigger/process_matches/")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("process_matches", resp.json()["detail"])
         mock_call.assert_called_once_with("process_matches")
 
     def test_disallowed_command(self):
         event = make_event()
-        resp = self.client.post(
-            f"/api/admin/events/{event.id}/trigger/drop_database/"
-        )
+        resp = self.client.post(f"/api/admin/events/{event.id}/trigger/drop_database/")
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Unknown command", resp.json()["detail"])
 

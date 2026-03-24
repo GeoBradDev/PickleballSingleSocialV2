@@ -45,43 +45,27 @@ class RenderMarketingEmailTests(TestCase):
         self.assertIn(str(self.event.capacity), html)
 
     def test_full_render_spots_filling_uses_full_variant(self):
-        normal_subject, normal_html = render_marketing_email(
-            "marketing_spots_filling", self.event, full=False
-        )
-        full_subject, full_html = render_marketing_email(
-            "marketing_spots_filling", self.event, full=True
-        )
+        normal_subject, normal_html = render_marketing_email("marketing_spots_filling", self.event, full=False)
+        full_subject, full_html = render_marketing_email("marketing_spots_filling", self.event, full=True)
         self.assertNotEqual(normal_subject, full_subject)
         self.assertNotEqual(normal_html, full_html)
         self.assertIn("Sold Out", full_subject)
 
     def test_full_render_one_week_uses_full_variant(self):
-        normal_subject, _ = render_marketing_email(
-            "marketing_one_week", self.event, full=False
-        )
-        full_subject, full_html = render_marketing_email(
-            "marketing_one_week", self.event, full=True
-        )
+        normal_subject, _ = render_marketing_email("marketing_one_week", self.event, full=False)
+        full_subject, full_html = render_marketing_email("marketing_one_week", self.event, full=True)
         self.assertNotEqual(normal_subject, full_subject)
         self.assertIn("Waitlist Open", full_subject)
 
     def test_full_render_last_chance_uses_full_variant(self):
-        normal_subject, _ = render_marketing_email(
-            "marketing_last_chance", self.event, full=False
-        )
-        full_subject, full_html = render_marketing_email(
-            "marketing_last_chance", self.event, full=True
-        )
+        normal_subject, _ = render_marketing_email("marketing_last_chance", self.event, full=False)
+        full_subject, full_html = render_marketing_email("marketing_last_chance", self.event, full=True)
         self.assertNotEqual(normal_subject, full_subject)
         self.assertIn("Waitlist", full_subject)
 
     def test_full_render_announcement_falls_back_to_normal(self):
-        normal_subject, normal_html = render_marketing_email(
-            "marketing_announcement", self.event, full=False
-        )
-        full_subject, full_html = render_marketing_email(
-            "marketing_announcement", self.event, full=True
-        )
+        normal_subject, normal_html = render_marketing_email("marketing_announcement", self.event, full=False)
+        full_subject, full_html = render_marketing_email("marketing_announcement", self.event, full=True)
         self.assertEqual(normal_subject, full_subject)
         self.assertEqual(normal_html, full_html)
 
@@ -123,9 +107,7 @@ class SendRegistrationConfirmationTests(TestCase):
         send_registration_confirmation(reg)
         mock_send.assert_called_once()
         self.assertEqual(mock_send.call_args[0][0], reg.attendee.email)
-        mock_add.assert_called_once_with(
-            reg.attendee.email, reg.attendee.first_name, reg.attendee.last_name
-        )
+        mock_add.assert_called_once_with(reg.attendee.email, reg.attendee.first_name, reg.attendee.last_name)
         self.assertTrue(
             EmailLog.objects.filter(
                 attendee=reg.attendee,

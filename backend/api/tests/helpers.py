@@ -6,7 +6,6 @@ from django.utils import timezone
 
 from api.models import (
     Attendee,
-    EmailLog,
     Event,
     Match,
     MatchSubmission,
