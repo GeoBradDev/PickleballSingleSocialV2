@@ -4,6 +4,7 @@ import logging
 import stripe
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -38,7 +39,7 @@ api = NinjaAPI(title="Pickleball Singles Social API", version="1.0.0")
 
 
 def _annotate_events(qs):
-    """Add male_count and female_count annotations to an Event queryset."""
+    """Add male_count, female_count, and registration_count annotations to an Event queryset."""
     return qs.annotate(
         male_count=Count(
             "registrations",
@@ -47,6 +48,10 @@ def _annotate_events(qs):
         female_count=Count(
             "registrations",
             filter=Q(registrations__status="confirmed", registrations__attendee__gender="female"),
+        ),
+        registration_count=Count(
+            "registrations",
+            filter=Q(registrations__status__in=("confirmed", "pending", "waitlisted")),
         ),
     )
 
@@ -97,6 +102,9 @@ def _check_capacity(event, gender):
     response={200: RegisterResponseOut, 400: ErrorOut, 404: ErrorOut},
 )
 def register_for_event(request: HttpRequest, event_id: int, payload: RegistrationIn):
+    # Strip phone to digits for consistent storage
+    phone_digits = "".join(c for c in payload.phone if c.isdigit())
+
     try:
         event = Event.objects.get(id=event_id)
     except Event.DoesNotExist:
@@ -104,13 +112,11 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
 
     # Age validation
     if payload.age < event.min_age or (event.max_age is not None and payload.age > event.max_age):
-        return 400, {
-            "detail": f"This event is for ages {event.age_label}. "
-            f"You must be {event.min_age} or older to register."
-            if event.max_age is None
-            else f"This event is for ages {event.age_label}. "
-            f"You must be between {event.min_age} and {event.max_age} to register."
-        }
+        if event.max_age is None:
+            msg = f"This event is for ages {event.age_label}. You must be {event.min_age} or older to register."
+        else:
+            msg = f"This event is for ages {event.age_label}. You must be between {event.min_age} and {event.max_age} to register."
+        return 400, {"detail": msg}
 
     # Get or create attendee by email, updating other fields
     attendee, _ = Attendee.objects.update_or_create(
@@ -118,71 +124,87 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
         defaults={
             "first_name": payload.first_name,
             "last_name": payload.last_name,
-            "phone": payload.phone,
+            "phone": phone_digits,
             "gender": payload.gender,
             "age": payload.age,
             "experience": payload.experience,
         },
     )
 
-    # Check for existing registration
-    registration, created = Registration.objects.get_or_create(
-        event=event,
-        attendee=attendee,
-        defaults={
-            "status": "pending",
-            "attending_coaching": payload.attending_coaching,
-            "attending_happy_hour": payload.attending_happy_hour,
-        },
-    )
+    # Add to MailerLite subscriber list (non-critical, don't block registration)
+    try:
+        from api.services.mailerlite import add_subscriber
+        add_subscriber(attendee.email, attendee.first_name, attendee.last_name)
+    except Exception:
+        logger.exception("Failed to add subscriber to MailerLite: %s", attendee.email)
 
-    if not created:
-        if registration.status == "confirmed":
-            return 400, {"detail": "Already registered and confirmed for this event"}
-        if registration.status == "waitlisted":
-            return 200, {"registration_id": registration.id, "status": "waitlisted"}
-        if registration.status == "pending" and registration.payment_intent_id:
-            # Return existing PaymentIntent so they can retry payment
-            stripe.api_key = settings.STRIPE_SECRET_KEY
-            intent = stripe.PaymentIntent.retrieve(registration.payment_intent_id)
-            return 200, {
-                "registration_id": registration.id,
+    with transaction.atomic():
+        # Lock the event row to prevent concurrent over-allocation
+        event = Event.objects.select_for_update().get(id=event_id)
+
+        # Check for existing registration
+        registration, created = Registration.objects.get_or_create(
+            event=event,
+            attendee=attendee,
+            defaults={
                 "status": "pending",
-                "client_secret": intent.client_secret,
-            }
+                "attending_coaching": payload.attending_coaching,
+                "attending_happy_hour": payload.attending_happy_hour,
+            },
+        )
 
-    # Check gender-based capacity
-    if not _check_capacity(event, attendee.gender):
-        registration.status = "waitlisted"
+        if not created:
+            if registration.status == "confirmed":
+                return 400, {"detail": "Already registered and confirmed for this event"}
+            if registration.status == "waitlisted":
+                return 200, {"registration_id": registration.id, "status": "waitlisted"}
+            if registration.status == "pending" and registration.payment_intent_id:
+                # Return existing PaymentIntent so they can retry payment
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+                intent = stripe.PaymentIntent.retrieve(registration.payment_intent_id)
+                return 200, {
+                    "registration_id": registration.id,
+                    "status": "pending",
+                    "client_secret": intent.client_secret,
+                }
+
+        # Check gender-based capacity
+        if not _check_capacity(event, attendee.gender):
+            registration.status = "waitlisted"
+            registration.save()
+            logger.info(
+                "Registration %d waitlisted: %s for %s (gender=%s)",
+                registration.id, attendee.email, event.title, attendee.gender,
+            )
+            from api.services.emails import send_waitlist_notification
+            send_waitlist_notification(registration)
+            return 200, {"registration_id": registration.id, "status": "waitlisted"}
+
+        # Create Stripe PaymentIntent
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        amount = _get_price_cents(attendee.gender)
+
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency="usd",
+            metadata={
+                "registration_id": str(registration.id),
+                "event_id": str(event.id),
+            },
+        )
+
+        registration.payment_intent_id = intent.id
+        registration.status = "pending"
         registration.save()
         logger.info(
-            "Registration %d waitlisted: %s for %s (gender=%s)",
-            registration.id, attendee.email, event.title, attendee.gender,
+            "Registration %d pending: %s for %s (pi=%s)",
+            registration.id, attendee.email, event.title, intent.id,
         )
-        from api.services.emails import send_waitlist_notification
-        send_waitlist_notification(registration)
-        return 200, {"registration_id": registration.id, "status": "waitlisted"}
 
-    # Create Stripe PaymentIntent
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    amount = _get_price_cents(attendee.gender)
-
-    intent = stripe.PaymentIntent.create(
-        amount=amount,
-        currency="usd",
-        metadata={
-            "registration_id": str(registration.id),
-            "event_id": str(event.id),
-        },
-    )
-
-    registration.payment_intent_id = intent.id
-    registration.status = "pending"
-    registration.save()
-    logger.info(
-        "Registration %d pending: %s for %s (pi=%s)",
-        registration.id, attendee.email, event.title, intent.id,
-    )
+    # A new registration may shift the ratio enough to promote waitlisted users
+    # of the opposite gender (outside transaction to avoid holding lock during Stripe call)
+    opposite = "female" if attendee.gender == "male" else "male"
+    _try_promote_waitlisted(event, opposite)
 
     return 200, {
         "registration_id": registration.id,
@@ -299,40 +321,43 @@ def _handle_payment_canceled(payment_intent):
 
 def _try_promote_waitlisted(event, gender):
     """Promote the longest-waiting waitlisted registration for the given event and gender."""
-    waitlisted = (
-        Registration.objects.filter(
-            event=event, status="waitlisted", attendee__gender=gender
+    with transaction.atomic():
+        event = Event.objects.select_for_update().get(id=event.id)
+
+        waitlisted = (
+            Registration.objects.filter(
+                event=event, status="waitlisted", attendee__gender=gender
+            )
+            .select_related("attendee")
+            .order_by("created_at")
+            .first()
         )
-        .select_related("attendee")
-        .order_by("created_at")
-        .first()
-    )
-    if not waitlisted:
-        return
+        if not waitlisted:
+            return
 
-    # Verify capacity is still available
-    if not _check_capacity(event, gender):
-        return
+        # Verify capacity is still available
+        if not _check_capacity(event, gender):
+            return
 
-    # Create PaymentIntent for promoted person
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    amount = _get_price_cents(gender)
-    intent = stripe.PaymentIntent.create(
-        amount=amount,
-        currency="usd",
-        metadata={
-            "registration_id": str(waitlisted.id),
-            "event_id": str(event.id),
-        },
-    )
+        # Create PaymentIntent for promoted person
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        amount = _get_price_cents(gender)
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency="usd",
+            metadata={
+                "registration_id": str(waitlisted.id),
+                "event_id": str(event.id),
+            },
+        )
 
-    waitlisted.status = "pending"
-    waitlisted.payment_intent_id = intent.id
-    waitlisted.save()
-    logger.info(
-        "Auto-promoted registration %d: %s (pi=%s)",
-        waitlisted.id, waitlisted.attendee.email, intent.id,
-    )
+        waitlisted.status = "pending"
+        waitlisted.payment_intent_id = intent.id
+        waitlisted.save()
+        logger.info(
+            "Auto-promoted registration %d: %s (pi=%s)",
+            waitlisted.id, waitlisted.attendee.email, intent.id,
+        )
 
     from api.services.emails import send_waitlist_promotion
     send_waitlist_promotion(waitlisted)
@@ -504,14 +529,14 @@ def admin_list_events(request: HttpRequest):
 
 @admin_router.post("/events/", response={201: EventOut})
 def admin_create_event(request: HttpRequest, payload: EventIn):
-    event = Event.objects.create(**payload.dict())
+    event = Event.objects.create(**payload.model_dump())
     qs = _annotate_events(Event.objects.filter(id=event.id))
     return 201, qs.first()
 
 
 @admin_router.put("/events/{event_id}/", response={200: EventOut, 404: ErrorOut})
 def admin_update_event(request: HttpRequest, event_id: int, payload: EventIn):
-    updated = Event.objects.filter(id=event_id).update(**payload.dict())
+    updated = Event.objects.filter(id=event_id).update(**payload.model_dump())
     if not updated:
         return 404, {"detail": "Event not found"}
     qs = _annotate_events(Event.objects.filter(id=event_id))

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from ninja import Schema
+from pydantic import field_validator
 
 
 class EventOut(Schema):
@@ -11,9 +12,11 @@ class EventOut(Schema):
     max_age: int | None
     event_date: datetime
     capacity: int
+    max_male_ratio: float
     status: str
     male_count: int = 0
     female_count: int = 0
+    registration_count: int = 0
 
 
 class RegistrationIn(Schema):
@@ -60,8 +63,15 @@ class EventIn(Schema):
     max_age: int | None = 45
     event_date: str
     capacity: int = 32
-    max_male_ratio: float = 0.5
+    max_male_ratio: float = 0.55
     status: str = "draft"
+
+    @field_validator("max_male_ratio")
+    @classmethod
+    def validate_ratio(cls, v):
+        if not 0 <= v <= 1:
+            raise ValueError("max_male_ratio must be between 0 and 1")
+        return v
 
 
 class RegistrationDetailOut(Schema):

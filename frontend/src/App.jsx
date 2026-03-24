@@ -13,6 +13,7 @@ import LoginPage from './pages/admin/LoginPage.jsx';
 import DashboardPage from './pages/admin/DashboardPage.jsx';
 import EventDetailPage from './pages/admin/EventDetailPage.jsx';
 import EventFormPage from './pages/admin/EventFormPage.jsx';
+import PayPage from './pages/PayPage.jsx';
 import MatchFormPage from './pages/MatchFormPage.jsx';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/events" element={<EventListPage />} />
         <Route path="/events/:eventId/register" element={<RegisterPage />} />
+        <Route path="/events/:eventId/pay" element={<PayPage />} />
         <Route path="/register/success" element={<SuccessPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/faq" element={<FAQPage />} />

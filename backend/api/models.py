@@ -54,7 +54,7 @@ class Attendee(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
-    age = models.PositiveIntegerField(default=0)
+    age = models.PositiveIntegerField()
     experience = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES, default="none")
 
     def __str__(self):
