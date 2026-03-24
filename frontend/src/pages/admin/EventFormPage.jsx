@@ -17,10 +17,11 @@ function EventFormPage() {
   const isEdit = Boolean(eventId);
 
   const [form, setForm] = useState({
-    title: '',
     event_date: '',
-    age_group: '25-45',
-    capacity: '',
+    min_age: 25,
+    max_age: '',
+    capacity: 32,
+    max_male_ratio: 0.55,
     status: 'draft',
   });
   const [loading, setLoading] = useState(isEdit);
@@ -34,10 +35,11 @@ function EventFormPage() {
         const event = events.find((e) => String(e.id) === String(eventId));
         if (event) {
           setForm({
-            title: event.title || '',
             event_date: event.event_date ? event.event_date.slice(0, 16) : '',
-            age_group: event.age_group || '25-45',
-            capacity: event.capacity ?? '',
+            min_age: event.min_age ?? 25,
+            max_age: event.max_age ?? '',
+            capacity: event.capacity ?? 32,
+            max_male_ratio: event.max_male_ratio ?? 0.55,
             status: event.status || 'draft',
           });
         }
@@ -54,7 +56,13 @@ function EventFormPage() {
     setError('');
     setSubmitting(true);
     try {
-      const data = { ...form, capacity: Number(form.capacity) };
+      const data = {
+        ...form,
+        min_age: Number(form.min_age),
+        max_age: form.max_age === '' ? null : Number(form.max_age),
+        capacity: Number(form.capacity),
+        max_male_ratio: Number(form.max_male_ratio),
+      };
       if (isEdit) {
         await updateEvent(eventId, data);
       } else {
@@ -90,14 +98,6 @@ function EventFormPage() {
           )}
           <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
-              label="Title"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              fullWidth
-            />
-            <TextField
               label="Event Date"
               name="event_date"
               type="datetime-local"
@@ -107,18 +107,26 @@ function EventFormPage() {
               fullWidth
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <TextField
-              label="Age Group"
-              name="age_group"
-              value={form.age_group}
-              onChange={handleChange}
-              select
-              required
-              fullWidth
-            >
-              <MenuItem value="25-45">25-45</MenuItem>
-              <MenuItem value="45+">45+</MenuItem>
-            </TextField>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Min Age"
+                name="min_age"
+                type="number"
+                value={form.min_age}
+                onChange={handleChange}
+                required
+                fullWidth
+              />
+              <TextField
+                label="Max Age"
+                name="max_age"
+                type="number"
+                value={form.max_age}
+                onChange={handleChange}
+                fullWidth
+                helperText="Leave blank for no upper limit"
+              />
+            </Box>
             <TextField
               label="Capacity"
               name="capacity"
@@ -127,6 +135,17 @@ function EventFormPage() {
               onChange={handleChange}
               required
               fullWidth
+            />
+            <TextField
+              label="Max Male Ratio"
+              name="max_male_ratio"
+              type="number"
+              value={form.max_male_ratio}
+              onChange={handleChange}
+              required
+              fullWidth
+              helperText="e.g. 0.55 means max 55% male"
+              slotProps={{ htmlInput: { min: 0, max: 1, step: 0.05 } }}
             />
             <TextField
               label="Status"

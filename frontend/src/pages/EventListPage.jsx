@@ -148,7 +148,7 @@ function EventListPage() {
                       {formatDate(event.event_date)}
                     </Typography>
                     <Chip
-                      label={`Ages ${event.age_group}`}
+                      label={`Ages ${event.age_label}`}
                       size="small"
                       sx={{ backgroundColor: 'primary.light', mb: 1 }}
                     />

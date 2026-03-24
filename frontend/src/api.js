@@ -141,6 +141,15 @@ export async function fetchEventMatchSubmissions(eventId) {
   return res.json();
 }
 
+export async function fetchRegistrationPayment(registrationId) {
+  const res = await fetch(`${API_BASE}/api/registrations/${registrationId}/payment/`);
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Failed to fetch payment info');
+  }
+  return res.json();
+}
+
 export async function subscribeEmail(email) {
   const res = await fetch(`${API_BASE}/api/subscribe/`, {
     method: 'POST',

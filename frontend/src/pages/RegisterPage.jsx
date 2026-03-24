@@ -10,6 +10,8 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { loadStripe } from '@stripe/stripe-js';
@@ -73,6 +75,7 @@ function RegisterPage() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [clientSecret, setClientSecret] = useState(null);
+  const [waitlisted, setWaitlisted] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -80,9 +83,43 @@ function RegisterPage() {
     email: '',
     phone: '',
     gender: '',
-    age_group: '',
-    contact_preference: 'email',
+    age: '',
+    experience: 'none',
+    attending_coaching: false,
+    attending_happy_hour: false,
   });
+
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function validatePhone(phone) {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 15;
+  }
+
+  function formatPhone(value) {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }
+
+  function handleBlur(e) {
+    const { name, value } = e.target;
+    if (name === 'email' && value && !validateEmail(value)) {
+      setFieldErrors((prev) => ({ ...prev, email: 'Enter a valid email address' }));
+    } else if (name === 'email') {
+      setFieldErrors((prev) => ({ ...prev, email: null }));
+    }
+    if (name === 'phone' && value && !validatePhone(value)) {
+      setFieldErrors((prev) => ({ ...prev, phone: 'Enter a valid 10-digit phone number' }));
+    } else if (name === 'phone') {
+      setFieldErrors((prev) => ({ ...prev, phone: null }));
+    }
+  }
 
   useEffect(() => {
     fetchEvent(eventId)
@@ -97,20 +134,41 @@ function RegisterPage() {
   }, [eventId]);
 
   function handleChange(e) {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    const { name, value, type, checked } = e.target;
+    if (name === 'phone') {
+      setFormData((prev) => ({ ...prev, phone: formatPhone(value) }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      }));
+    }
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: null }));
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    const errors = {};
+    if (!validateEmail(formData.email)) errors.email = 'Enter a valid email address';
+    if (!validatePhone(formData.phone)) errors.phone = 'Enter a valid 10-digit phone number';
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      const result = await registerForEvent(eventId, formData);
-      setClientSecret(result.client_secret);
+      const result = await registerForEvent(eventId, { ...formData, age: Number(formData.age) });
+      if (result.status === 'waitlisted') {
+        setWaitlisted(true);
+      } else {
+        setClientSecret(result.client_secret);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -144,10 +202,10 @@ function RegisterPage() {
             {event.title}
           </Typography>
           <Typography color="text.secondary">
-            {formatDate(event.date)}
+            {formatDate(event.event_date)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Age Group: {event.age_group}
+            Ages {event.age_label}
           </Typography>
         </Paper>
       )}
@@ -158,7 +216,21 @@ function RegisterPage() {
         </Alert>
       )}
 
-      {clientSecret ? (
+      {waitlisted ? (
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" gutterBottom>
+            You're on the Waitlist
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Thanks for signing up! We keep the group intentionally small and balanced.
+            You're on the waitlist, and if a spot opens up, we'll email you right away
+            with a link to complete payment.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Keep an eye on your inbox at <strong>{formData.email}</strong>.
+          </Typography>
+        </Paper>
+      ) : clientSecret ? (
         <Paper elevation={2} sx={{ p: 3 }}>
           <Typography variant="h5" gutterBottom>
             Payment
@@ -195,16 +267,24 @@ function RegisterPage() {
               type="email"
               value={formData.email}
               onChange={handleChange}
+              onBlur={handleBlur}
               required
               fullWidth
+              error={Boolean(fieldErrors.email)}
+              helperText={fieldErrors.email}
             />
             <TextField
               label="Phone"
               name="phone"
+              type="tel"
               value={formData.phone}
               onChange={handleChange}
+              onBlur={handleBlur}
               required
               fullWidth
+              placeholder="(555) 123-4567"
+              error={Boolean(fieldErrors.phone)}
+              helperText={fieldErrors.phone}
             />
             <Box
               sx={{
@@ -231,31 +311,51 @@ function RegisterPage() {
                 <MenuItem value="female">Female ($15)</MenuItem>
               </Select>
             </FormControl>
+            <TextField
+              label="Age"
+              name="age"
+              type="number"
+              value={formData.age}
+              onChange={handleChange}
+              required
+              fullWidth
+              helperText={event ? `This event is for ages ${event.age_label}` : ''}
+              slotProps={{ htmlInput: { min: 18, max: 120 } }}
+            />
             <FormControl fullWidth required>
-              <InputLabel>Age Group</InputLabel>
+              <InputLabel>Pickleball Experience</InputLabel>
               <Select
-                name="age_group"
-                value={formData.age_group}
+                name="experience"
+                value={formData.experience}
                 onChange={handleChange}
-                label="Age Group"
+                label="Pickleball Experience"
               >
-                <MenuItem value="25-45">25-45</MenuItem>
-                <MenuItem value="45+">45+</MenuItem>
+                <MenuItem value="none">Never played</MenuItem>
+                <MenuItem value="beginner">Beginner (played a few times)</MenuItem>
+                <MenuItem value="intermediate">Intermediate (play regularly)</MenuItem>
+                <MenuItem value="advanced">Advanced (competitive)</MenuItem>
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Contact Preference</InputLabel>
-              <Select
-                name="contact_preference"
-                value={formData.contact_preference}
-                onChange={handleChange}
-                label="Contact Preference"
-              >
-                <MenuItem value="email">Email</MenuItem>
-                <MenuItem value="text">Text</MenuItem>
-                <MenuItem value="both">Both</MenuItem>
-              </Select>
-            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="attending_coaching"
+                  checked={formData.attending_coaching}
+                  onChange={handleChange}
+                />
+              }
+              label="I plan to attend the beginner coaching session (2:30 PM)"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="attending_happy_hour"
+                  checked={formData.attending_happy_hour}
+                  onChange={handleChange}
+                />
+              }
+              label="I plan to attend the happy hour after the event"
+            />
             <Button
               type="submit"
               variant="contained"

@@ -5,19 +5,19 @@ from .models import Attendee, EmailLog, Event, Match, MatchSubmission, Registrat
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ("title", "age_group", "event_date", "capacity", "capacity_male", "capacity_female", "status", "created_at")
-    list_filter = ("status", "age_group")
+    list_display = ("__str__", "min_age", "max_age", "event_date", "capacity", "max_male_ratio", "status", "created_at")
+    list_filter = ("status",)
 
 
 @admin.register(Attendee)
 class AttendeeAdmin(admin.ModelAdmin):
-    list_display = ("first_name", "last_name", "email", "phone", "gender", "age_group")
+    list_display = ("first_name", "last_name", "email", "phone", "gender", "age", "experience")
     search_fields = ("first_name", "last_name", "email")
 
 
 @admin.register(Registration)
 class RegistrationAdmin(admin.ModelAdmin):
-    list_display = ("attendee", "event", "status", "payment_intent_id", "created_at")
+    list_display = ("attendee", "event", "status", "attending_coaching", "attending_happy_hour", "created_at")
     list_filter = ("status",)
 
 

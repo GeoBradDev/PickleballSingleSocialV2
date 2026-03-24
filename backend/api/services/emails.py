@@ -209,7 +209,7 @@ def send_match_form_reminder(registration):
 
 
 def send_match_notification(match):
-    """Notify both parties of a mutual match with contact info, respecting contact_preference."""
+    """Notify both parties of a mutual match with contact info."""
     _send_match_to(match, match.attendee_a, match.attendee_b)
     _send_match_to(match, match.attendee_b, match.attendee_a)
 
@@ -221,13 +221,6 @@ def _send_match_to(match, registration, other_registration):
     other = other_registration.attendee
     if _already_sent(attendee, match.event, email_type):
         return
-    # Build contact info based on the OTHER person's contact_preference
-    contact_lines = []
-    if other.contact_preference in ("email", "both"):
-        contact_lines.append(f"Email: {other.email}")
-    if other.contact_preference in ("text", "both"):
-        contact_lines.append(f"Phone: {other.phone}")
-    contact_html = "<br>".join(contact_lines) if contact_lines else "Contact info not available"
 
     subject = f"You have a match from {match.event.title}!"
     html = f"""
@@ -236,7 +229,7 @@ def _send_match_to(match, registration, other_registration):
     <p>Great news! You and <strong>{other.first_name} {other.last_name[0]}.</strong>
     both selected each other at <strong>{match.event.title}</strong>.</p>
     <p>Here's how to reach them:</p>
-    <p>{contact_html}</p>
+    <p>Email: {other.email}</p>
     <p>Don't be shy, reach out and set up a game!</p>
     """
     from .mailerlite import send_email

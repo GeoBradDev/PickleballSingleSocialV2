@@ -4,10 +4,6 @@ from django.db import models
 
 
 class Event(models.Model):
-    AGE_GROUP_CHOICES = [
-        ("25-45", "25-45"),
-        ("45+", "45+"),
-    ]
     STATUS_CHOICES = [
         ("draft", "Draft"),
         ("open", "Open"),
@@ -15,29 +11,29 @@ class Event(models.Model):
         ("completed", "Completed"),
     ]
 
-    title = models.CharField(max_length=255)
-    age_group = models.CharField(max_length=10, choices=AGE_GROUP_CHOICES)
+    min_age = models.PositiveIntegerField(default=25)
+    max_age = models.PositiveIntegerField(null=True, blank=True, help_text="Leave blank for no upper limit.")
     event_date = models.DateTimeField()
     capacity = models.PositiveIntegerField(default=32)
-    capacity_male = models.PositiveIntegerField(
-        null=True, blank=True, help_text="Max male spots. Defaults to capacity / 2."
-    )
-    capacity_female = models.PositiveIntegerField(
-        null=True, blank=True, help_text="Max female spots. Defaults to capacity / 2."
+    max_male_ratio = models.FloatField(
+        default=0.55,
+        help_text="Maximum fraction of reserved spots that can be male (e.g. 0.5 = 50%).",
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
-    def effective_capacity_male(self):
-        return self.capacity_male if self.capacity_male is not None else self.capacity // 2
+    def title(self):
+        return f"Pickleball Singles Social ({self.age_label}) - {self.event_date.strftime('%-m/%-d/%Y')}"
 
     @property
-    def effective_capacity_female(self):
-        return self.capacity_female if self.capacity_female is not None else self.capacity // 2
+    def age_label(self):
+        if self.max_age is None:
+            return f"{self.min_age}+"
+        return f"{self.min_age}-{self.max_age}"
 
     def __str__(self):
-        return f"{self.title} ({self.event_date:%Y-%m-%d})"
+        return f"Event ({self.event_date:%Y-%m-%d})"
 
 
 class Attendee(models.Model):
@@ -45,14 +41,12 @@ class Attendee(models.Model):
         ("male", "Male"),
         ("female", "Female"),
     ]
-    AGE_GROUP_CHOICES = [
-        ("25-45", "25-45"),
-        ("45+", "45+"),
-    ]
-    CONTACT_PREFERENCE_CHOICES = [
-        ("email", "Email"),
-        ("text", "Text"),
-        ("both", "Both"),
+
+    EXPERIENCE_CHOICES = [
+        ("none", "Never played"),
+        ("beginner", "Beginner (played a few times)"),
+        ("intermediate", "Intermediate (play regularly)"),
+        ("advanced", "Advanced (competitive)"),
     ]
 
     first_name = models.CharField(max_length=255)
@@ -60,10 +54,8 @@ class Attendee(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
-    age_group = models.CharField(max_length=10, choices=AGE_GROUP_CHOICES)
-    contact_preference = models.CharField(
-        max_length=10, choices=CONTACT_PREFERENCE_CHOICES, default="email"
-    )
+    age = models.PositiveIntegerField()
+    experience = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES, default="none")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
@@ -81,6 +73,8 @@ class Registration(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registrations")
     attendee = models.ForeignKey(Attendee, on_delete=models.CASCADE, related_name="registrations")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    attending_coaching = models.BooleanField(default=False)
+    attending_happy_hour = models.BooleanField(default=False)
     match_token = models.UUIDField(unique=True, default=uuid.uuid4)
     payment_intent_id = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

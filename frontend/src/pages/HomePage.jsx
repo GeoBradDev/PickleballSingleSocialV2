@@ -15,6 +15,7 @@ import SportsTennisIcon from '@mui/icons-material/SportsTennis';
 import LocalBarIcon from '@mui/icons-material/LocalBar';
 import CheckIcon from '@mui/icons-material/Check';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { Link as RouterLink } from 'react-router';
 import { fetchEvents, subscribeEmail } from '../api.js';
 
@@ -108,7 +109,7 @@ function HomePage() {
                 sx={{ mr: 1, mb: 1, backgroundColor: 'white' }}
               />
               <Chip
-                label={`Ages ${nextEvent.age_group}`}
+                label={`Ages ${nextEvent.age_label}`}
                 sx={{ mb: 1, backgroundColor: 'white' }}
               />
             </Box>
@@ -230,49 +231,70 @@ function HomePage() {
         </Box>
       </Container>
 
-      {/* Testimonials */}
+      {/* What to Expect */}
       <Box sx={{ backgroundColor: 'primary.light', py: 8 }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="md">
           <Typography variant="h3" sx={{ textAlign: 'center', mb: 5 }}>
-            What People Are Saying
+            What to Expect
           </Typography>
-          <Grid container spacing={3}>
-            {[
-              {
-                quote:
-                  'I was so nervous going alone, but the coaching session broke the ice perfectly. I matched with two amazing people!',
-                name: 'Sarah',
-                age: 32,
-              },
-              {
-                quote:
-                  "Best $15 I have ever spent on a date activity. Way more fun than sitting across from a stranger at a coffee shop.",
-                name: 'Jessica',
-                age: 28,
-              },
-              {
-                quote:
-                  "I had never played pickleball before and ended up having the best Saturday afternoon. Already signed up for the next one.",
-                name: 'Michelle',
-                age: 41,
-              },
-            ].map((testimonial, i) => (
-              <Grid size={{ xs: 12, md: 4 }} key={i}>
-                <Card elevation={0} sx={{ height: '100%', p: 1 }}>
-                  <CardContent>
-                    <Typography
-                      sx={{ fontStyle: 'italic', mb: 2, color: 'text.secondary', lineHeight: 1.8 }}
-                    >
-                      "{testimonial.quote}"
-                    </Typography>
-                    <Typography variant="subtitle2" color="primary.main">
-                      {testimonial.name}, {testimonial.age}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          {[
+            {
+              time: '2:30 PM',
+              title: 'Optional Coaching Session',
+              description: 'A quick 30-minute intro for beginners. Learn the basics so you feel confident when play starts. Totally optional.',
+              icon: <SportsIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+            },
+            {
+              time: '3:00 PM',
+              title: 'Mixed Doubles Play',
+              description: 'Rotate through partners every few games. The format is designed so you meet everyone, not just the people next to you.',
+              icon: <GroupsIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+            },
+            {
+              time: '5:00 PM',
+              title: 'Optional Happy Hour',
+              description: 'Head to a nearby spot with the group. Keep the conversations going off the court in a relaxed setting.',
+              icon: <LocalBarIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+            },
+            {
+              time: 'That Evening',
+              title: 'Private Match Form',
+              description: 'You will receive a link to select the people you connected with. If the feeling is mutual, we share contact info the next morning.',
+              icon: <FavoriteBorderIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+            },
+          ].map((step, i) => (
+            <Box
+              key={i}
+              sx={{
+                display: 'flex',
+                gap: 3,
+                mb: i < 3 ? 4 : 0,
+                alignItems: 'flex-start',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  minWidth: 64,
+                }}
+              >
+                {step.icon}
+                <Typography variant="caption" color="primary.main" sx={{ mt: 0.5, fontWeight: 600 }}>
+                  {step.time}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  {step.title}
+                </Typography>
+                <Typography color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                  {step.description}
+                </Typography>
+              </Box>
+            </Box>
+          ))}
         </Container>
       </Box>
 

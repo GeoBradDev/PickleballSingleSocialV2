@@ -1,15 +1,22 @@
+from datetime import datetime
+
 from ninja import Schema
+from pydantic import field_validator
 
 
 class EventOut(Schema):
     id: int
     title: str
-    age_group: str
-    event_date: str
+    age_label: str
+    min_age: int
+    max_age: int | None
+    event_date: datetime
     capacity: int
+    max_male_ratio: float
     status: str
     male_count: int = 0
     female_count: int = 0
+    registration_count: int = 0
 
 
 class RegistrationIn(Schema):
@@ -18,8 +25,10 @@ class RegistrationIn(Schema):
     email: str
     phone: str
     gender: str
-    age_group: str
-    contact_preference: str = "email"
+    age: int
+    experience: str = "none"
+    attending_coaching: bool = False
+    attending_happy_hour: bool = False
 
 
 class RegistrationOut(Schema):
@@ -50,11 +59,19 @@ class ErrorOut(Schema):
 
 
 class EventIn(Schema):
-    title: str
-    age_group: str
+    min_age: int = 25
+    max_age: int | None = 45
     event_date: str
     capacity: int = 32
+    max_male_ratio: float = 0.55
     status: str = "draft"
+
+    @field_validator("max_male_ratio")
+    @classmethod
+    def validate_ratio(cls, v):
+        if not 0 <= v <= 1:
+            raise ValueError("max_male_ratio must be between 0 and 1")
+        return v
 
 
 class RegistrationDetailOut(Schema):
@@ -67,7 +84,10 @@ class RegistrationDetailOut(Schema):
     attendee_email: str
     attendee_phone: str
     attendee_gender: str
-    attendee_contact_preference: str
+    attendee_age: int
+    attendee_experience: str
+    attending_coaching: bool
+    attending_happy_hour: bool
 
 
 class EventStatsOut(Schema):
@@ -92,7 +112,7 @@ class MatchFormAttendeeOut(Schema):
 
 class MatchFormDataOut(Schema):
     event_title: str
-    event_date: str
+    event_date: datetime
     attendee_name: str  # greeting name for the viewer
     attendees: list[MatchFormAttendeeOut]
     already_submitted: bool = False
