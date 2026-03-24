@@ -185,9 +185,14 @@ class SendMatchFormTests(TestCase):
 # 5. send_match_reminder
 # ---------------------------------------------------------------------------
 class SendMatchReminderTests(TestCase):
+    def _today_noon(self):
+        """Return noon today in the project timezone to avoid date boundary issues in CI."""
+        now = timezone.now()
+        return now.replace(hour=12, minute=0, second=0, microsecond=0)
+
     @patch("api.management.commands.send_match_reminder.send_match_form_reminder")
     def test_confirmed_without_submission_gets_reminder(self, mock_send):
-        event = make_event(event_date=timezone.now(), status="open")
+        event = make_event(event_date=self._today_noon(), status="open")
         reg = make_registration(event=event, attendee=make_attendee(1), status="confirmed")
 
         out = StringIO()
@@ -198,7 +203,7 @@ class SendMatchReminderTests(TestCase):
 
     @patch("api.management.commands.send_match_reminder.send_match_form_reminder")
     def test_registration_with_submission_skipped(self, mock_send):
-        event = make_event(event_date=timezone.now(), status="open")
+        event = make_event(event_date=self._today_noon(), status="open")
         reg = make_registration(event=event, attendee=make_attendee(1), status="confirmed")
         make_submission(event, reg, selected_regs=[])
 
