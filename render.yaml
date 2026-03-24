@@ -51,7 +51,7 @@ services:
     branch: prod
     buildCommand: ./build.sh
     schedule: "0 * * * *"
-    startCommand: python manage.py expire_stale_registrations; python manage.py send_marketing_emails
+    startCommand: python manage.py run_scheduled_tasks
     envVars:
       - key: DATABASE_URL
         fromDatabase:
