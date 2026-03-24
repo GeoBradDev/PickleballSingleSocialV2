@@ -64,12 +64,14 @@ def create_campaign(name, subject, html_content):
     campaign_data = {
         "name": name,
         "type": "regular",
-        "emails": [{
-            "subject": subject,
-            "from": settings.MAILERLITE_FROM_EMAIL,
-            "from_name": settings.MAILERLITE_FROM_NAME,
-            "content": html_content,
-        }],
+        "emails": [
+            {
+                "subject": subject,
+                "from": settings.MAILERLITE_FROM_EMAIL,
+                "from_name": settings.MAILERLITE_FROM_NAME,
+                "content": html_content,
+            }
+        ],
     }
     create_response = httpx.post(
         f"{MAILERLITE_API_URL}/campaigns",

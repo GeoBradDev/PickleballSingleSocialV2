@@ -22,6 +22,9 @@ class Event(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"Event ({self.event_date:%Y-%m-%d})"
+
     @property
     def title(self):
         return f"Pickleball Singles Social ({self.age_label}) - {self.event_date.strftime('%-m/%-d/%Y')}"
@@ -31,9 +34,6 @@ class Event(models.Model):
         if self.max_age is None:
             return f"{self.min_age}+"
         return f"{self.min_age}-{self.max_age}"
-
-    def __str__(self):
-        return f"Event ({self.event_date:%Y-%m-%d})"
 
 
 class Attendee(models.Model):
@@ -88,12 +88,8 @@ class Registration(models.Model):
 
 class MatchSubmission(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    submitted_by = models.ForeignKey(
-        Registration, on_delete=models.CASCADE, related_name="match_submissions"
-    )
-    selected_attendees = models.ManyToManyField(
-        Registration, related_name="selected_by"
-    )
+    submitted_by = models.ForeignKey(Registration, on_delete=models.CASCADE, related_name="match_submissions")
+    selected_attendees = models.ManyToManyField(Registration, related_name="selected_by")
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -102,20 +98,16 @@ class MatchSubmission(models.Model):
 
 class Match(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="matches")
-    attendee_a = models.ForeignKey(
-        Registration, on_delete=models.CASCADE, related_name="matches_as_a"
-    )
-    attendee_b = models.ForeignKey(
-        Registration, on_delete=models.CASCADE, related_name="matches_as_b"
-    )
+    attendee_a = models.ForeignKey(Registration, on_delete=models.CASCADE, related_name="matches_as_a")
+    attendee_b = models.ForeignKey(Registration, on_delete=models.CASCADE, related_name="matches_as_b")
     notified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Match: {self.attendee_a} <-> {self.attendee_b}"
-
     class Meta:
         verbose_name_plural = "matches"
+
+    def __str__(self):
+        return f"Match: {self.attendee_a} <-> {self.attendee_b}"
 
 
 class EmailLog(models.Model):

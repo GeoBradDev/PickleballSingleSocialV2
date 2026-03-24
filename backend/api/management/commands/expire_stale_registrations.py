@@ -53,8 +53,7 @@ class Command(BaseCommand):
         for reg in stale:
             if dry_run:
                 self.stdout.write(
-                    f"  [DRY RUN] Would expire registration {reg.id}: "
-                    f"{reg.attendee.email} for {reg.event.title}"
+                    f"  [DRY RUN] Would expire registration {reg.id}: {reg.attendee.email} for {reg.event.title}"
                 )
                 continue
 
@@ -69,10 +68,13 @@ class Command(BaseCommand):
             reg.save()
             logger.info(
                 "Expired registration %d: %s for %s",
-                reg.id, reg.attendee.email, reg.event.title,
+                reg.id,
+                reg.attendee.email,
+                reg.event.title,
             )
 
             from api.services.emails import send_payment_expired
+
             send_payment_expired(reg)
 
             # Promote next waitlisted person of same gender

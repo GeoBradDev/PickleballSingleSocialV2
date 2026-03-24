@@ -137,9 +137,7 @@ def render_marketing_email(email_key, event, full=False):
 
 
 def _already_sent(attendee, event, email_type):
-    return EmailLog.objects.filter(
-        attendee=attendee, event=event, email_type=email_type
-    ).exists()
+    return EmailLog.objects.filter(attendee=attendee, event=event, email_type=email_type).exists()
 
 
 def _log_email(attendee, event, email_type):
@@ -156,10 +154,10 @@ def send_registration_confirmation(registration):
     <h2>Registration Confirmed</h2>
     <p>Hi {registration.attendee.first_name},</p>
     <p>You are confirmed for <strong>{registration.event.title}</strong>
-    on {registration.event.event_date.strftime('%B %d, %Y')}.</p>
+    on {registration.event.event_date.strftime("%B %d, %Y")}.</p>
     <p>We'll send you a reminder as the event approaches.</p>
     """
-    from .mailerlite import send_email, add_subscriber
+    from .mailerlite import add_subscriber, send_email
 
     send_email(registration.attendee.email, subject, html)
     add_subscriber(
@@ -185,7 +183,7 @@ def send_waitlist_notification(registration):
     If an opening comes up, you'll hear from us right away.</p>
     <p>Questions? Just reply to this email.</p>
     """
-    from .mailerlite import send_email, add_subscriber
+    from .mailerlite import add_subscriber, send_email
 
     send_email(registration.attendee.email, subject, html)
     add_subscriber(
@@ -202,17 +200,14 @@ def send_waitlist_promotion(registration):
     if _already_sent(registration.attendee, registration.event, email_type):
         return
     event = registration.event
-    pay_url = (
-        f"https://pickleballsinglessocial.com/events/{event.id}"
-        f"/pay?registration={registration.id}"
-    )
+    pay_url = f"https://pickleballsinglessocial.com/events/{event.id}/pay?registration={registration.id}"
     subject = f"A spot opened up for {event.title}!"
     html = f"""
     <h2>A Spot Opened Up!</h2>
     <p>Hi {registration.attendee.first_name},</p>
     <p>Good news: a spot has opened up for
     <strong>{event.title}</strong> on
-    {event.event_date.strftime('%B %d, %Y')}!</p>
+    {event.event_date.strftime("%B %d, %Y")}!</p>
     <p>Complete payment to lock in your spot:</p>
     <p><a href="{pay_url}"
        style="display:inline-block;padding:12px 24px;background:#2e7d32;color:white;text-decoration:none;border-radius:4px;">
@@ -256,7 +251,7 @@ def send_reminder(registration):
     <h2>Event Reminder</h2>
     <p>Hi {registration.attendee.first_name},</p>
     <p><strong>{registration.event.title}</strong> is just a few days away on
-    {registration.event.event_date.strftime('%B %d, %Y')}.</p>
+    {registration.event.event_date.strftime("%B %d, %Y")}.</p>
     <p>We look forward to seeing you there!</p>
     """
     from .mailerlite import send_email
@@ -383,7 +378,7 @@ def send_save_the_date(attendee, event):
     <h2>Save the Date!</h2>
     <p>Hi {attendee.first_name},</p>
     <p>We have another event coming up: <strong>{event.title}</strong>
-    on {event.event_date.strftime('%B %d, %Y')}.</p>
+    on {event.event_date.strftime("%B %d, %Y")}.</p>
     <p>Registration opens soon. Stay tuned!</p>
     """
     from .mailerlite import send_email
