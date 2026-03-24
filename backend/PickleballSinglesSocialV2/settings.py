@@ -139,6 +139,15 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # MailerLite settings
 MAILERLITE_API_KEY = os.environ.get("MAILERLITE_API_KEY", "")
+MAILERLITE_FROM_EMAIL = os.environ.get("MAILERLITE_FROM_EMAIL", "hello@pickleballsinglessocial.com")
+MAILERLITE_FROM_NAME = os.environ.get("MAILERLITE_FROM_NAME", "Pickleball Singles Social")
+
+# MailerLite age-based subscriber groups (created manually in MailerLite dashboard)
+MAILERLITE_AGE_GROUPS = {}
+if os.environ.get("MAILERLITE_GROUP_25_45"):
+    MAILERLITE_AGE_GROUPS["25-45"] = os.environ["MAILERLITE_GROUP_25_45"]
+if os.environ.get("MAILERLITE_GROUP_45_PLUS"):
+    MAILERLITE_AGE_GROUPS["45+"] = os.environ["MAILERLITE_GROUP_45_PLUS"]
 
 # Production security settings
 if not DEBUG:
