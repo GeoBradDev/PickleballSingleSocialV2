@@ -1,6 +1,9 @@
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+let _csrfToken = '';
+
 function getCsrfToken() {
+  if (_csrfToken) return _csrfToken;
   const match = document.cookie.match(/csrftoken=([^;]+)/);
   return match ? match[1] : '';
 }
@@ -43,11 +46,12 @@ export async function fetchCsrfToken() {
     credentials: 'include',
   });
   if (!res.ok) return null;
-  return res.json();
+  const data = await res.json();
+  _csrfToken = data.csrfToken;
+  return data;
 }
 
 export async function login(username, password) {
-  // Fetch CSRF token first (sets the cookie)
   await fetchCsrfToken();
   const res = await fetch(`${API_BASE}/api/auth/login/`, {
     method: 'POST',
@@ -56,7 +60,9 @@ export async function login(username, password) {
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw new Error('Login failed');
-  return res.json();
+  const data = await res.json();
+  if (data.csrfToken) _csrfToken = data.csrfToken;
+  return data;
 }
 
 export async function logout() {
