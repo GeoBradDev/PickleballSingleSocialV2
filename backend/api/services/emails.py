@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from ..models import EmailLog
 
 # Marketing email schedule: (email_key, days_before_event)
@@ -125,7 +127,7 @@ def render_marketing_email(email_key, event, full=False):
         "date": event.event_date.strftime("%B %-d, %Y"),
         "weekday": event.event_date.strftime("%A"),
         "capacity": str(event.capacity),
-        "register_url": f"https://pickleballsinglessocial.com/events/{event.id}",
+        "register_url": f"{settings.SITE_URL}/events/{event.id}",
     }
     if full and "full_subject" in template:
         subject = template["full_subject"].format(**context)
@@ -200,7 +202,7 @@ def send_waitlist_promotion(registration):
     if _already_sent(registration.attendee, registration.event, email_type):
         return
     event = registration.event
-    pay_url = f"https://pickleballsinglessocial.com/events/{event.id}/pay?registration={registration.id}"
+    pay_url = f"{settings.SITE_URL}/events/{event.id}/pay?token={registration.match_token}"
     subject = f"A spot opened up for {event.title}!"
     html = f"""
     <h2>A Spot Opened Up!</h2>
@@ -302,7 +304,7 @@ def send_match_form_link(registration):
     email_type = "match_form"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    match_url = f"https://pickleballsinglessocial.com/match/{registration.match_token}"
+    match_url = f"{settings.SITE_URL}/match/{registration.match_token}"
     subject = f"Who did you connect with at {registration.event.title}?"
     html = f"""
     <h2>Match Form</h2>
@@ -324,7 +326,7 @@ def send_match_form_reminder(registration):
     email_type = "match_form_reminder"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    match_url = f"https://pickleballsinglessocial.com/match/{registration.match_token}"
+    match_url = f"{settings.SITE_URL}/match/{registration.match_token}"
     subject = f"Last chance: Submit your matches for {registration.event.title}"
     html = f"""
     <h2>Don't Forget!</h2>

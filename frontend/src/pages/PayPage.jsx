@@ -64,20 +64,20 @@ function PaymentForm() {
 function PayPage() {
   const { eventId } = useParams();
   const [searchParams] = useSearchParams();
-  const registrationId = searchParams.get('registration');
+  const matchToken = searchParams.get('token');
 
   const [event, setEvent] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [amount, setAmount] = useState(null);
-  const [loading, setLoading] = useState(!registrationId ? false : true);
-  const [error, setError] = useState(!registrationId ? 'Missing registration ID.' : null);
+  const [loading, setLoading] = useState(!matchToken ? false : true);
+  const [error, setError] = useState(!matchToken ? 'Missing payment token.' : null);
 
   useEffect(() => {
-    if (!registrationId) return;
+    if (!matchToken) return;
 
     Promise.all([
       fetchEvent(eventId),
-      fetchRegistrationPayment(registrationId),
+      fetchRegistrationPayment(matchToken),
     ])
       .then(([eventData, paymentData]) => {
         setEvent(eventData);
@@ -88,7 +88,7 @@ function PayPage() {
         setError(err.message);
       })
       .finally(() => setLoading(false));
-  }, [eventId, registrationId]);
+  }, [eventId, matchToken]);
 
   if (loading) {
     return (

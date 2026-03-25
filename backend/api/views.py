@@ -6,7 +6,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
+from django_ratelimit.core import is_ratelimited
 from ninja import NinjaAPI, Router
 
 from .auth import staff_auth
@@ -33,6 +35,17 @@ from .schemas import (
 logger = logging.getLogger("api.views")
 
 api = NinjaAPI(title="Pickleball Singles Social API", version="1.0.0")
+
+
+def _check_rate_limit(request, group, rate):
+    """Return a 429 response if the request is rate-limited, else None."""
+    if is_ratelimited(request, group=group, key="ip", rate=rate, increment=True):
+        return api.create_response(
+            request,
+            {"detail": "Too many requests. Please try again later."},
+            status=429,
+        )
+    return None
 
 
 def _annotate_events(qs):
@@ -97,6 +110,9 @@ def _check_capacity(event, gender):
     response={200: RegisterResponseOut, 400: ErrorOut, 404: ErrorOut},
 )
 def register_for_event(request: HttpRequest, event_id: int, payload: RegistrationIn):
+    limited = _check_rate_limit(request, "register", "10/m")
+    if limited:
+        return limited
     # Strip phone to digits for consistent storage
     phone_digits = "".join(c for c in payload.phone if c.isdigit())
 
@@ -335,7 +351,12 @@ def _handle_payment_canceled(payment_intent):
 
 
 def _try_promote_waitlisted(event, gender):
-    """Promote the longest-waiting waitlisted registration for the given event and gender."""
+    """Promote the longest-waiting waitlisted registration for the given event and gender.
+
+    The Stripe API call is made outside the atomic block to avoid holding
+    a database row lock during an external HTTP call.
+    """
+    # Phase 1: Lock event, find candidate, mark as promoting
     with transaction.atomic():
         event = Event.objects.select_for_update().get(id=event.id)
 
@@ -348,11 +369,15 @@ def _try_promote_waitlisted(event, gender):
         if not waitlisted:
             return
 
-        # Verify capacity is still available
         if not _check_capacity(event, gender):
             return
 
-        # Create PaymentIntent for promoted person
+        # Reserve the spot by changing status (releases lock after block)
+        waitlisted.status = "pending"
+        waitlisted.save()
+
+    # Phase 2: Stripe call outside the lock
+    try:
         stripe.api_key = settings.STRIPE_SECRET_KEY
         amount = _get_price_cents(gender)
         intent = stripe.PaymentIntent.create(
@@ -363,8 +388,6 @@ def _try_promote_waitlisted(event, gender):
                 "event_id": str(event.id),
             },
         )
-
-        waitlisted.status = "pending"
         waitlisted.payment_intent_id = intent.id
         waitlisted.save()
         logger.info(
@@ -373,6 +396,13 @@ def _try_promote_waitlisted(event, gender):
             waitlisted.attendee.email,
             intent.id,
         )
+    except Exception:
+        # Stripe failed: revert to waitlisted so the spot isn't lost
+        logger.exception("Stripe PaymentIntent creation failed for promotion of registration %d", waitlisted.id)
+        waitlisted.status = "waitlisted"
+        waitlisted.payment_intent_id = ""
+        waitlisted.save()
+        return
 
     from api.services.emails import send_waitlist_promotion
 
@@ -380,17 +410,18 @@ def _try_promote_waitlisted(event, gender):
 
 
 @api.get(
-    "/registrations/{registration_id}/payment/",
+    "/registrations/{match_token}/payment/",
     auth=None,
     response={200: RegistrationPaymentOut, 404: ErrorOut, 409: ErrorOut},
 )
-def get_registration_payment(request: HttpRequest, registration_id: int):
+def get_registration_payment(request: HttpRequest, match_token: str):
     """Retrieve the PaymentIntent client_secret for a pending registration.
 
-    Used by the frontend when a promoted-from-waitlist user follows their email link.
+    Uses the unguessable match_token (UUID) instead of a sequential ID
+    to prevent enumeration attacks on payment secrets.
     """
     try:
-        reg = Registration.objects.select_related("attendee").get(id=registration_id)
+        reg = Registration.objects.select_related("attendee").get(match_token=match_token)
     except Registration.DoesNotExist:
         return 404, {"detail": "Registration not found"}
 
@@ -413,6 +444,9 @@ def get_registration_payment(request: HttpRequest, registration_id: int):
 
 @api.post("/subscribe/", auth=None)
 def subscribe(request: HttpRequest, payload: SubscribeIn):
+    limited = _check_rate_limit(request, "subscribe", "5/m")
+    if limited:
+        return limited
     from .services.mailerlite import add_subscriber
 
     add_subscriber(payload.email, "", "")
@@ -424,13 +458,22 @@ def subscribe(request: HttpRequest, payload: SubscribeIn):
 # ---------------------------------------------------------------------------
 
 
+@api.get("/auth/csrf/", auth=None)
+def auth_csrf(request: HttpRequest):
+    """Return a CSRF token. Also sets the csrftoken cookie."""
+    return {"csrfToken": get_token(request)}
+
+
 @api.post("/auth/login/", auth=None)
 def auth_login(request: HttpRequest, payload: LoginIn):
+    limited = _check_rate_limit(request, "login", "5/m")
+    if limited:
+        return limited
     user = authenticate(request, username=payload.username, password=payload.password)
     if user is None:
         return api.create_response(request, {"detail": "Invalid credentials"}, status=401)
     login(request, user)
-    return {"detail": "Logged in"}
+    return {"detail": "Logged in", "csrfToken": get_token(request)}
 
 
 @api.post("/auth/logout/", auth=None)
@@ -502,11 +545,11 @@ def get_match_form(request: HttpRequest, match_token: str):
 @api.post(
     "/match-form/{match_token}/",
     auth=None,
-    response={200: ErrorOut, 404: ErrorOut, 409: ErrorOut, 410: ErrorOut},
+    response={200: ErrorOut, 400: ErrorOut, 404: ErrorOut, 409: ErrorOut, 410: ErrorOut},
 )
 def submit_match_form(request: HttpRequest, match_token: str, payload: MatchFormSubmissionIn):
     try:
-        registration = Registration.objects.select_related("event").get(match_token=match_token)
+        registration = Registration.objects.select_related("attendee", "event").get(match_token=match_token)
     except Registration.DoesNotExist:
         return 404, {"detail": "Not found"}
 
@@ -519,6 +562,16 @@ def submit_match_form(request: HttpRequest, match_token: str, payload: MatchForm
     # Check if already submitted
     if MatchSubmission.objects.filter(submitted_by=registration).exists():
         return 409, {"detail": "Already submitted"}
+
+    # Validate selected_ids: must be opposite-gender confirmed registrations for the same event
+    if payload.selected_ids:
+        valid_ids = set(
+            Registration.objects.filter(event=event, status="confirmed")
+            .exclude(attendee__gender=registration.attendee.gender)
+            .values_list("id", flat=True)
+        )
+        if not set(payload.selected_ids).issubset(valid_ids):
+            return 400, {"detail": "Invalid selection"}
 
     # Create submission
     submission = MatchSubmission.objects.create(

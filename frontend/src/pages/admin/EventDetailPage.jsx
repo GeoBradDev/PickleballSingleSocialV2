@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useParams, Link as RouterLink } from 'react-router';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -16,86 +16,44 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
-import {
-  fetchEventStats,
-  fetchEventRegistrations,
-  fetchEventMatches,
-  fetchEventMatchSubmissions,
-  triggerCommand,
-} from '../../api.js';
+import useAdminEventStore from '../../stores/adminEventStore.js';
 
 function EventDetailPage() {
   const { eventId } = useParams();
-  const [stats, setStats] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
-
-  // Matches tab state
-  const [matches, setMatches] = useState([]);
-  const [matchesLoading, setMatchesLoading] = useState(false);
-  const [matchesLoaded, setMatchesLoaded] = useState(false);
-  const [commandAlert, setCommandAlert] = useState(null);
-  const [commandLoading, setCommandLoading] = useState(false);
-
-  // Submissions tab state
-  const [submissions, setSubmissions] = useState([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
+  const {
+    stats,
+    registrations,
+    matches,
+    submissions,
+    loading,
+    matchesLoading,
+    submissionsLoading,
+    commandLoading,
+    commandAlert,
+    activeTab,
+    setActiveTab,
+    setCommandAlert,
+    loadEvent,
+    loadMatches,
+    loadSubmissions,
+    triggerCommand,
+    reset,
+  } = useAdminEventStore();
 
   useEffect(() => {
-    Promise.all([
-      fetchEventStats(eventId),
-      fetchEventRegistrations(eventId),
-    ])
-      .then(([statsData, regsData]) => {
-        setStats(statsData);
-        setRegistrations(regsData);
-      })
-      .finally(() => setLoading(false));
-  }, [eventId]);
+    reset();
+    loadEvent(eventId);
+    return () => reset();
+  }, [eventId, reset, loadEvent]);
 
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = (_event, newValue) => {
     setActiveTab(newValue);
-
-    if (newValue === 1 && !matchesLoaded) {
-      setMatchesLoading(true);
-      fetchEventMatches(eventId)
-        .then((data) => {
-          setMatches(data);
-          setMatchesLoaded(true);
-        })
-        .catch(() => setMatches([]))
-        .finally(() => setMatchesLoading(false));
-    }
-
-    if (newValue === 2 && !submissionsLoaded) {
-      setSubmissionsLoading(true);
-      fetchEventMatchSubmissions(eventId)
-        .then((data) => {
-          setSubmissions(data);
-          setSubmissionsLoaded(true);
-        })
-        .catch(() => setSubmissions([]))
-        .finally(() => setSubmissionsLoading(false));
-    }
+    if (newValue === 1) loadMatches(eventId);
+    if (newValue === 2) loadSubmissions(eventId);
   };
 
-  const handleTriggerCommand = async (command) => {
-    setCommandLoading(true);
-    setCommandAlert(null);
-    try {
-      const result = await triggerCommand(eventId, command);
-      setCommandAlert({ severity: 'success', message: result.message || `${command} completed successfully.` });
-      // Refresh matches after a command
-      fetchEventMatches(eventId)
-        .then((data) => setMatches(data))
-        .catch(() => {});
-    } catch (err) {
-      setCommandAlert({ severity: 'error', message: err.message || `${command} failed.` });
-    } finally {
-      setCommandLoading(false);
-    }
+  const handleTriggerCommand = (command) => {
+    triggerCommand(eventId, command);
   };
 
   if (loading) {
@@ -107,11 +65,11 @@ function EventDetailPage() {
   }
 
   const statCards = [
-    { label: 'Total', value: stats?.total ?? 0 },
+    { label: 'Total', value: stats?.total_registrations ?? 0 },
     { label: 'Confirmed', value: stats?.confirmed ?? 0 },
-    { label: 'Male', value: stats?.male ?? 0 },
-    { label: 'Female', value: stats?.female ?? 0 },
-    { label: 'Revenue', value: `$${stats?.revenue ?? 0}` },
+    { label: 'Male', value: stats?.male_count ?? 0 },
+    { label: 'Female', value: stats?.female_count ?? 0 },
+    { label: 'Revenue', value: `$${((stats?.revenue ?? 0) / 100).toFixed(2)}` },
   ];
 
   return (
@@ -165,10 +123,10 @@ function EventDetailPage() {
               <TableBody>
                 {registrations.map((reg) => (
                   <TableRow key={reg.id}>
-                    <TableCell>{reg.first_name} {reg.last_name}</TableCell>
-                    <TableCell>{reg.email}</TableCell>
-                    <TableCell>{reg.phone}</TableCell>
-                    <TableCell>{reg.gender}</TableCell>
+                    <TableCell>{reg.attendee_first_name} {reg.attendee_last_name}</TableCell>
+                    <TableCell>{reg.attendee_email}</TableCell>
+                    <TableCell>{reg.attendee_phone}</TableCell>
+                    <TableCell>{reg.attendee_gender}</TableCell>
                     <TableCell>{reg.status}</TableCell>
                     <TableCell>{new Date(reg.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
@@ -231,8 +189,8 @@ function EventDetailPage() {
                 <TableBody>
                   {matches.map((match) => (
                     <TableRow key={match.id}>
-                      <TableCell>{match.person_a_name}</TableCell>
-                      <TableCell>{match.person_b_name}</TableCell>
+                      <TableCell>{match.attendee_a_name}</TableCell>
+                      <TableCell>{match.attendee_b_name}</TableCell>
                       <TableCell>{match.notified ? 'Yes' : 'No'}</TableCell>
                       <TableCell>{new Date(match.created_at).toLocaleDateString()}</TableCell>
                     </TableRow>
@@ -273,9 +231,9 @@ function EventDetailPage() {
                   {submissions.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell>{sub.submitted_by_name}</TableCell>
-                      <TableCell>{sub.gender}</TableCell>
-                      <TableCell>{sub.selected_name}</TableCell>
-                      <TableCell>{new Date(sub.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{sub.submitted_by_gender}</TableCell>
+                      <TableCell>{sub.selected_names?.join(', ')}</TableCell>
+                      <TableCell>{new Date(sub.submitted_at).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
                   {submissions.length === 0 && (

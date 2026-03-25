@@ -118,18 +118,25 @@ _cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF trusted origins (for cross-origin session auth during development)
+# CSRF settings
 _csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+CSRF_COOKIE_HTTPONLY = False  # JS needs to read the csrftoken cookie
 
 # Stripe settings
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
+# Frontend URL (used in emails)
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:5173")
+
 # MailerLite settings
 MAILERLITE_API_KEY = os.environ.get("MAILERLITE_API_KEY", "")
-MAILERLITE_FROM_EMAIL = os.environ.get("MAILERLITE_FROM_EMAIL", "hello@pickleballsinglessocial.com")
+MAILERLITE_FROM_EMAIL = os.environ.get("MAILERLITE_FROM_EMAIL", "info@pickleballsinglessocial.com")
 MAILERLITE_FROM_NAME = os.environ.get("MAILERLITE_FROM_NAME", "Pickleball Singles Social")
+
+# MailerSend settings (transactional emails)
+MAILERSEND_API_KEY = os.environ.get("MAILSEND_API_KEY", "")
 
 # MailerLite age-based subscriber groups (created manually in MailerLite dashboard)
 MAILERLITE_AGE_GROUPS = {}
@@ -138,6 +145,31 @@ if os.environ.get("MAILERLITE_GROUP_25_45"):
 if os.environ.get("MAILERLITE_GROUP_45_PLUS"):
     MAILERLITE_AGE_GROUPS["45+"] = os.environ["MAILERLITE_GROUP_45_PLUS"]
 
+# Logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "api": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 # Production security settings
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
@@ -145,5 +177,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = "None"
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -1,5 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+function getCsrfToken() {
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? match[1] : '';
+}
+
+function authHeaders(extra = {}) {
+  return {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': getCsrfToken(),
+    ...extra,
+  };
+}
+
 export async function fetchEvents() {
   const res = await fetch(`${API_BASE}/api/events/`);
   if (!res.ok) throw new Error('Failed to fetch events');
@@ -25,10 +38,20 @@ export async function registerForEvent(eventId, data) {
   return res.json();
 }
 
+export async function fetchCsrfToken() {
+  const res = await fetch(`${API_BASE}/api/auth/csrf/`, {
+    credentials: 'include',
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export async function login(username, password) {
+  // Fetch CSRF token first (sets the cookie)
+  await fetchCsrfToken();
   const res = await fetch(`${API_BASE}/api/auth/login/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     credentials: 'include',
     body: JSON.stringify({ username, password }),
   });
@@ -39,6 +62,7 @@ export async function login(username, password) {
 export async function logout() {
   const res = await fetch(`${API_BASE}/api/auth/logout/`, {
     method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
     credentials: 'include',
   });
   return res.json();
@@ -63,7 +87,7 @@ export async function fetchAdminEvents() {
 export async function createEvent(data) {
   const res = await fetch(`${API_BASE}/api/admin/events/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     credentials: 'include',
     body: JSON.stringify(data),
   });
@@ -74,7 +98,7 @@ export async function createEvent(data) {
 export async function updateEvent(id, data) {
   const res = await fetch(`${API_BASE}/api/admin/events/${id}/`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     credentials: 'include',
     body: JSON.stringify(data),
   });
@@ -85,6 +109,7 @@ export async function updateEvent(id, data) {
 export async function deleteEvent(id) {
   const res = await fetch(`${API_BASE}/api/admin/events/${id}/`, {
     method: 'DELETE',
+    headers: { 'X-CSRFToken': getCsrfToken() },
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to delete event');
@@ -141,8 +166,8 @@ export async function fetchEventMatchSubmissions(eventId) {
   return res.json();
 }
 
-export async function fetchRegistrationPayment(registrationId) {
-  const res = await fetch(`${API_BASE}/api/registrations/${registrationId}/payment/`);
+export async function fetchRegistrationPayment(matchToken) {
+  const res = await fetch(`${API_BASE}/api/registrations/${matchToken}/payment/`);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || 'Failed to fetch payment info');
@@ -163,6 +188,7 @@ export async function subscribeEmail(email) {
 export async function triggerCommand(eventId, command) {
   const res = await fetch(`${API_BASE}/api/admin/events/${eventId}/trigger/${command}/`, {
     method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to trigger command');

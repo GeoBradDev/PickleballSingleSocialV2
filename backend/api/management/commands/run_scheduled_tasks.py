@@ -56,16 +56,10 @@ class Command(BaseCommand):
             for cmd in match_pipeline:
                 success = self._run_command(cmd, verbosity)
                 if not success:
-                    self.stderr.write(
-                        f"  Match pipeline halted: {cmd} failed, "
-                        f"skipping remaining steps."
-                    )
+                    self.stderr.write(f"  Match pipeline halted: {cmd} failed, skipping remaining steps.")
                     break
         elif verbosity >= 2:
-            self.stdout.write(
-                f"  Skipping match pipeline: outside window "
-                f"({start}-{end}, current hour={hour})"
-            )
+            self.stdout.write(f"  Skipping match pipeline: outside window ({start}-{end}, current hour={hour})")
 
     def _run_command(self, name, verbosity):
         """Run a management command, catching and logging exceptions.
