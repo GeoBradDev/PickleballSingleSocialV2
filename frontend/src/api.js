@@ -3,7 +3,6 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 let _csrfToken = '';
 
 function getCsrfToken() {
-  // Try in-memory token first (works cross-domain), fall back to cookie (works same-domain/dev)
   if (_csrfToken) return _csrfToken;
   const match = document.cookie.match(/csrftoken=([^;]+)/);
   return match ? match[1] : '';
