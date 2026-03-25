@@ -10,13 +10,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         today = timezone.now().date()
-        events = Event.objects.filter(event_date__date=today)
-        self.stdout.write(f"Found {events.count()} event(s) that happened today.")
+        events = Event.objects.filter(event_date__date=today, status="closed")
+        self.stdout.write(f"Found {events.count()} closed event(s) that happened today.")
         count = 0
         for event in events:
             registrations = Registration.objects.filter(event=event, status="confirmed").select_related(
                 "attendee", "event"
             )
+            if not registrations.exists():
+                self.stdout.write(f"  No confirmed registrations for {event.title}, skipping.")
+                continue
             for reg in registrations:
                 send_match_form_link(reg)
                 count += 1

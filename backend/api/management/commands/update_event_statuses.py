@@ -27,9 +27,10 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"Closed {len(open_past)} past event(s)."))
             changed = True
 
-        # Move closed events to completed (1-day buffer for match form submissions)
-        one_day_ago = now - timezone.timedelta(days=1)
-        closed_past = list(Event.objects.filter(status="closed", event_date__lt=one_day_ago))
+        # Safety net: complete closed events after 3 days if the match pipeline
+        # didn't already handle them (the pipeline normally completes them after 1 day)
+        three_days_ago = now - timezone.timedelta(days=3)
+        closed_past = list(Event.objects.filter(status="closed", event_date__lt=three_days_ago))
         if closed_past:
             for event in closed_past:
                 event.status = "completed"

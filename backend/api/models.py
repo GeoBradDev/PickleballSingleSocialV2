@@ -19,7 +19,7 @@ class Event(models.Model):
         default=0.55,
         help_text="Maximum fraction of reserved spots that can be male (e.g. 0.5 = 50%).",
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -72,7 +72,7 @@ class Registration(models.Model):
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registrations")
     attendee = models.ForeignKey(Attendee, on_delete=models.CASCADE, related_name="registrations")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)
     attending_coaching = models.BooleanField(default=False)
     attending_happy_hour = models.BooleanField(default=False)
     match_token = models.UUIDField(unique=True, default=uuid.uuid4)
