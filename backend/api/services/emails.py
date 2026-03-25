@@ -253,18 +253,69 @@ def _button(url, label):
     return f'<p style="text-align:center;padding:8px 0;"><a href="{url}" style="{_BTN}">{label}</a></p>'
 
 
+def _event_details_block(event, include_coaching=True):
+    """Reusable event details card for emails."""
+    date_str = event.event_date.strftime("%A, %B %-d, %Y")
+    coaching_row = """
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;width:40%;vertical-align:top;">Coaching (optional)</td>
+    <td style="padding:6px 0;font-weight:500;">2:30 PM</td>
+    </tr>""" if include_coaching else ""
+    return f"""
+    <table style="margin:16px 0;background-color:#f8e1e8;border-radius:12px;width:100%;">
+    <tr><td style="padding:20px;">
+    <p style="margin:0 0 12px;font-weight:600;font-size:17px;color:#3d2c2c;">{event.title}</p>
+    <table style="width:100%;font-size:14px;">
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;width:40%;vertical-align:top;">Date</td>
+    <td style="padding:6px 0;font-weight:500;">{date_str}</td>
+    </tr>{coaching_row}
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;vertical-align:top;">Play</td>
+    <td style="padding:6px 0;font-weight:500;">3:00 - 5:00 PM</td>
+    </tr>
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;vertical-align:top;">Happy Hour</td>
+    <td style="padding:6px 0;font-weight:500;">After play (optional)</td>
+    </tr>
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;vertical-align:top;">Location</td>
+    <td style="padding:6px 0;font-weight:500;">Arch Pickleball &amp; Badminton<br>
+    <span style="font-weight:400;color:#7a6565;">11333 Blake Dr, Bridgeton, MO 63044</span></td>
+    </tr>
+    <tr>
+    <td style="padding:6px 0;color:#7a6565;vertical-align:top;">What to Bring</td>
+    <td style="padding:6px 0;font-weight:500;">Comfortable clothes &amp; sneakers<br>
+    <span style="font-weight:400;color:#7a6565;">Paddles and balls are provided</span></td>
+    </tr>
+    </table>
+    </td></tr>
+    </table>"""
+
+
 def send_registration_confirmation(registration):
     """Send after payment confirmed."""
     email_type = "registration_confirmation"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"You're registered for {registration.event.title}!"
+    event = registration.event
+    subject = f"You're registered for {event.title}!"
     body = f"""
-    {_heading("Registration Confirmed")}
+    {_heading("You're In!")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>You are confirmed for <strong>{registration.event.title}</strong>
-    on {registration.event.event_date.strftime("%B %d, %Y")}.</p>
-    <p>We'll send you a reminder as the event approaches.</p>
+    <p>Great news, your registration for <strong>{event.title}</strong> is confirmed!
+    We're looking forward to seeing you on the courts.</p>
+    {_event_details_block(event)}
+    <p><strong>A few things to know:</strong></p>
+    <ul style="padding-left:20px;color:#3d2c2c;">
+    <li style="margin-bottom:8px;">No pickleball experience needed. The optional coaching session at 2:30 PM
+    will get you comfortable before play starts.</li>
+    <li style="margin-bottom:8px;">You'll rotate through mixed doubles partners so you get to meet everyone.</li>
+    <li style="margin-bottom:8px;">After the event, you'll receive a private match form to let us know who you'd
+    like to connect with. If it's mutual, we'll share contact info the next morning.</li>
+    <li style="margin-bottom:8px;">Full refund available up to 48 hours before the event.</li>
+    </ul>
+    <p>We'll send you a reminder as the event approaches. See you there!</p>
     """
     from .mailerlite import add_subscriber, send_email
 
@@ -282,14 +333,18 @@ def send_waitlist_notification(registration):
     email_type = "waitlist_notification"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"You're on the waitlist for {registration.event.title}"
+    event = registration.event
+    subject = f"You're on the waitlist for {event.title}"
     body = f"""
     {_heading("You're on the Waitlist")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>Thanks for signing up for <strong>{registration.event.title}</strong>!</p>
-    <p>We keep the group intentionally small and balanced,
-    and we've currently filled our spots. You're on the waitlist.
-    If an opening comes up, you'll hear from us right away.</p>
+    <p>Thanks for signing up for <strong>{event.title}</strong>
+    on {event.event_date.strftime("%A, %B %-d, %Y")}!</p>
+    <p>We keep the group intentionally small (max {event.capacity} people) and balanced,
+    and we've currently filled our spots for your group. You're on the waitlist,
+    and if an opening comes up, you'll hear from us right away with a payment link
+    to lock in your spot.</p>
+    <p>There's no need to do anything else. We'll reach out if a spot opens up.</p>
     <p style="color:#7a6565;font-size:14px;">Questions? Just reply to this email.</p>
     """
     from .mailerlite import add_subscriber, send_email
@@ -315,8 +370,8 @@ def send_waitlist_promotion(registration):
     {_heading("A Spot Opened Up!")}
     <p>Hi {registration.attendee.first_name},</p>
     <p>Good news: a spot has opened up for
-    <strong>{event.title}</strong> on
-    {event.event_date.strftime("%B %d, %Y")}!</p>
+    <strong>{event.title}</strong>!</p>
+    {_event_details_block(event)}
     <p>Complete payment to lock in your spot:</p>
     {_button(pay_url, "Pay and Confirm Your Spot")}
     <p style="color:#7a6565;font-size:14px;">This link is first come, first served.
@@ -333,13 +388,14 @@ def send_payment_expired(registration):
     email_type = "payment_expired"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"Your payment link has expired for {registration.event.title}"
+    event = registration.event
+    subject = f"Your payment link has expired for {event.title}"
     body = f"""
     {_heading("Payment Link Expired")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>Your payment link for <strong>{registration.event.title}</strong>
-    has expired and your spot has been released.</p>
-    <p style="color:#7a6565;font-size:14px;">If you're still interested, just reply to this email
+    <p>Your payment link for <strong>{event.title}</strong>
+    on {event.event_date.strftime("%A, %B %-d, %Y")} has expired and your spot has been released.</p>
+    <p>If you're still interested, just reply to this email
     and we'll do our best to get you back in.</p>
     """
     from .mailerlite import send_email
@@ -353,13 +409,21 @@ def send_reminder(registration):
     email_type = "reminder"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"Reminder: {registration.event.title} is coming up!"
+    event = registration.event
+    subject = f"Reminder: {event.title} is coming up!"
     body = f"""
-    {_heading("Event Reminder")}
+    {_heading("Your Event Is Almost Here!")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p><strong>{registration.event.title}</strong> is just a few days away on
-    {registration.event.event_date.strftime("%B %d, %Y")}.</p>
-    <p>We look forward to seeing you there!</p>
+    <p><strong>{event.title}</strong> is just a few days away! Here's everything you need to know:</p>
+    {_event_details_block(event)}
+    <p><strong>Quick reminders:</strong></p>
+    <ul style="padding-left:20px;color:#3d2c2c;">
+    <li style="margin-bottom:8px;">Wear comfortable athletic clothes and court shoes (sneakers are fine).</li>
+    <li style="margin-bottom:8px;">Paddles and balls are provided, so just bring yourself.</li>
+    <li style="margin-bottom:8px;">If you're new to pickleball, come at 2:30 for the optional coaching session.</li>
+    <li style="margin-bottom:8px;">After the event, check your email for the match form to let us know who you connected with.</li>
+    </ul>
+    <p>We're looking forward to seeing you there!</p>
     """
     from .mailerlite import send_email
 
@@ -372,13 +436,17 @@ def send_payment_reminder(registration):
     email_type = "payment_reminder"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"Complete your registration for {registration.event.title}"
+    event = registration.event
+    subject = f"Complete your registration for {event.title}"
     body = f"""
     {_heading("Complete Your Registration")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>We noticed you started registering for <strong>{registration.event.title}</strong>
-    but haven't completed payment yet.</p>
-    <p>Spots are limited, so don't wait too long!</p>
+    <p>We noticed you started registering for <strong>{event.title}</strong>
+    on {event.event_date.strftime("%A, %B %-d, %Y")} but haven't completed payment yet.</p>
+    <p>Spots are limited to {event.capacity} attendees, and we want to make sure you don't miss out.
+    If you're still interested, complete your payment to lock in your spot.</p>
+    <p style="color:#7a6565;font-size:14px;">If you changed your mind, no worries at all.
+    We hope to see you at a future event!</p>
     """
     from .mailerlite import send_email
 
@@ -391,12 +459,22 @@ def send_dayof_reminder(registration):
     email_type = "dayof_reminder"
     if _already_sent(registration.attendee, registration.event, email_type):
         return
-    subject = f"Today's the day! {registration.event.title}"
+    event = registration.event
+    subject = f"Today's the day! {event.title}"
     body = f"""
     {_heading("See You Today!")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p><strong>{registration.event.title}</strong> is happening today!</p>
-    <p>Have a great time on the courts!</p>
+    <p><strong>{event.title}</strong> is happening today! Here's your quick reference:</p>
+    {_event_details_block(event)}
+    <p><strong>Last-minute tips:</strong></p>
+    <ul style="padding-left:20px;color:#3d2c2c;">
+    <li style="margin-bottom:8px;">Arrive a few minutes early to check in and grab a paddle.</li>
+    <li style="margin-bottom:8px;">Bring water. There may be water available, but it's good to have your own.</li>
+    <li style="margin-bottom:8px;">Come ready to have fun. This is social first, competitive second.</li>
+    </ul>
+    <p>After the event, you'll receive a link to our match form where you can privately select
+    the people you'd like to connect with. If it's mutual, we'll share contact info tomorrow morning.</p>
+    <p>See you on the courts!</p>
     """
     from .mailerlite import send_email
 
@@ -410,15 +488,23 @@ def send_match_form_link(registration):
     if _already_sent(registration.attendee, registration.event, email_type):
         return
     match_url = f"{settings.SITE_URL}/match/{registration.match_token}"
-    subject = f"Who did you connect with at {registration.event.title}?"
+    event = registration.event
+    subject = f"Who did you connect with at {event.title}?"
     body = f"""
-    {_heading("Match Form")}
+    {_heading("Who Did You Connect With?")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>Thanks for attending <strong>{registration.event.title}</strong>!</p>
-    <p>Now it's time to let us know who you'd like to connect with.
-    Click below to select the people you enjoyed meeting:</p>
+    <p>Thanks for attending <strong>{event.title}</strong>! We hope you had a great time.</p>
+    <p>Now it's time to let us know who you'd like to connect with. Here's how it works:</p>
+    <ul style="padding-left:20px;color:#3d2c2c;">
+    <li style="margin-bottom:8px;">Click the button below to open your private match form.</li>
+    <li style="margin-bottom:8px;">Select the people you enjoyed meeting and would like to connect with.</li>
+    <li style="margin-bottom:8px;">If the feeling is mutual (they also select you), we'll share
+    contact info with both of you tomorrow morning.</li>
+    <li style="margin-bottom:8px;">Your selections are completely private. No one sees who you picked
+    unless it's a mutual match.</li>
+    </ul>
     {_button(match_url, "Open Match Form")}
-    <p style="color:#7a6565;font-size:14px;">The form closes at midnight tonight, so don't wait!</p>
+    <p style="color:#7a6565;font-size:14px;">The form closes tomorrow evening, so don't wait too long!</p>
     """
     from .mailerlite import send_email
 
@@ -432,11 +518,15 @@ def send_match_form_reminder(registration):
     if _already_sent(registration.attendee, registration.event, email_type):
         return
     match_url = f"{settings.SITE_URL}/match/{registration.match_token}"
-    subject = f"Last chance: Submit your matches for {registration.event.title}"
+    event = registration.event
+    subject = f"Last chance: Submit your matches for {event.title}"
     body = f"""
-    {_heading("Don't Forget!")}
+    {_heading("Don't Forget Your Match Form!")}
     <p>Hi {registration.attendee.first_name},</p>
-    <p>The match form for <strong>{registration.event.title}</strong> closes at midnight.</p>
+    <p>The match form for <strong>{event.title}</strong> closes tonight.
+    If you haven't submitted yet, now's the time!</p>
+    <p>Remember: your selections are completely private, and contact info is only shared
+    if both people select each other. There's no downside to submitting.</p>
     {_button(match_url, "Submit Your Matches")}
     """
     from .mailerlite import send_email
@@ -466,13 +556,17 @@ def _send_match_to(match, registration, other_registration):
     <p>Great news! You and <strong>{other.first_name} {other.last_name[0]}.</strong>
     both selected each other at <strong>{match.event.title}</strong>.</p>
     <p>Here's how to reach them:</p>
-    <table style="margin:16px 0;background-color:#f8e1e8;border-radius:12px;padding:16px;width:100%;">
-    <tr><td style="padding:16px;">
-    <p style="margin:0 0 4px;font-weight:600;color:#3d2c2c;">{other.first_name} {other.last_name[0]}.</p>
-    <p style="margin:0;color:#7a6565;"><a href="mailto:{other.email}" style="color:#b5627e;">{other.email}</a></p>
+    <table style="margin:16px 0;background-color:#f8e1e8;border-radius:12px;width:100%;">
+    <tr><td style="padding:20px;">
+    <p style="margin:0 0 4px;font-weight:600;font-size:17px;color:#3d2c2c;">{other.first_name} {other.last_name[0]}.</p>
+    <p style="margin:0;color:#7a6565;">
+    <a href="mailto:{other.email}" style="color:#b5627e;">{other.email}</a></p>
     </td></tr>
     </table>
-    <p>Don't be shy, reach out and set up a game!</p>
+    <p>We suggest keeping it simple: introduce yourself, mention the event,
+    and maybe suggest grabbing a coffee or playing some more pickleball together.</p>
+    <p>Thanks for being part of Pickleball Singles Social. We hope this is the start
+    of something great!</p>
     """
     from .mailerlite import send_email
 
@@ -489,9 +583,10 @@ def send_save_the_date(attendee, event):
     body = f"""
     {_heading("Save the Date!")}
     <p>Hi {attendee.first_name},</p>
-    <p>We have another event coming up: <strong>{event.title}</strong>
-    on {event.event_date.strftime("%B %d, %Y")}.</p>
-    <p>Registration opens soon. Stay tuned!</p>
+    <p>We have another event coming up and wanted to make sure you're the first to know!</p>
+    {_event_details_block(event)}
+    <p>Registration opens soon. As a past attendee, you'll get first access when spots open up.</p>
+    <p>We hope to see you again on the courts!</p>
     """
     from .mailerlite import send_email
 

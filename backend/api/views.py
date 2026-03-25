@@ -192,6 +192,12 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
                     "status": "pending",
                     "client_secret": intent.client_secret,
                 }
+            if registration.status in ("expired", "cancelled"):
+                # Reset so they can register again
+                registration.payment_intent_id = ""
+                registration.attending_coaching = payload.attending_coaching
+                registration.attending_happy_hour = payload.attending_happy_hour
+                registration.save(update_fields=["payment_intent_id", "attending_coaching", "attending_happy_hour"])
 
         # Check gender-based capacity
         if not _check_capacity(event, attendee.gender):
