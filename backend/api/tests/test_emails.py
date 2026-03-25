@@ -158,9 +158,9 @@ class SendWaitlistPromotionTests(TestCase):
         send_waitlist_promotion(reg)
         mock_send.assert_called_once()
         self.assertEqual(mock_send.call_args[0][0], reg.attendee.email)
-        # The HTML body (third arg) should contain a pay URL with the registration id.
+        # The HTML body (third arg) should contain a pay URL with the match token.
         html_body = mock_send.call_args[0][2]
-        self.assertIn(f"registration={reg.id}", html_body)
+        self.assertIn(f"token={reg.match_token}", html_body)
         self.assertTrue(
             EmailLog.objects.filter(
                 attendee=reg.attendee,

@@ -26,19 +26,13 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.ERROR(f"Event with ID {event_id} not found."))
                 return
         else:
-            event = (
-                Event.objects.filter(status="open", event_date__gt=timezone.now())
-                .order_by("event_date")
-                .first()
-            )
+            event = Event.objects.filter(status="open", event_date__gt=timezone.now()).order_by("event_date").first()
             if not event:
                 if options["verbosity"] >= 2:
                     self.stdout.write("No upcoming open events found.")
                 return
 
-            has_any_sent = EmailLog.objects.filter(
-                event=event, email_type="save_the_date"
-            ).exists()
+            has_any_sent = EmailLog.objects.filter(event=event, email_type="save_the_date").exists()
             if has_any_sent:
                 if options["verbosity"] >= 2:
                     self.stdout.write(

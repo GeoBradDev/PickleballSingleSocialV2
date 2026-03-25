@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -10,7 +10,7 @@ import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import { Link as RouterLink } from 'react-router';
-import { fetchEvents } from '../api.js';
+import useEventsStore from '../stores/eventsStore.js';
 
 function getStatusChip(event) {
   const registered = (event.male_count || 0) + (event.female_count || 0);
@@ -27,21 +27,11 @@ function getStatusChip(event) {
 }
 
 function EventListPage() {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { events, loading, fetchEvents } = useEventsStore();
 
   useEffect(() => {
-    fetchEvents()
-      .then((data) => {
-        setEvents(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+    fetchEvents();
+  }, [fetchEvents]);
 
   if (loading) {
     return (
@@ -52,15 +42,7 @@ function EventListPage() {
     );
   }
 
-  if (error) {
-    return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography color="error">{error}</Typography>
-      </Container>
-    );
-  }
-
-  if (events.length === 0) {
+  if (!loading && events.length === 0) {
     return (
       <>
         <Box

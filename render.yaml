@@ -41,6 +41,10 @@ services:
         sync: false
       - key: MAILERLITE_GROUP_45_PLUS
         sync: false
+      - key: MAILSEND_API_KEY
+        sync: false
+      - key: SITE_URL
+        value: https://pickleballsinglessocial.com
 
   - type: cron
     name: Pickleball Singles Social CRON Job
@@ -73,6 +77,10 @@ services:
         sync: false
       - key: MAILERLITE_GROUP_45_PLUS
         sync: false
+      - key: MAILSEND_API_KEY
+        sync: false
+      - key: SITE_URL
+        value: https://pickleballsinglessocial.com
 
   - type: web
     name: Pickleball Singles Social Frontend
@@ -90,6 +98,15 @@ services:
       - path: /*
         name: X-Frame-Options
         value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains; preload
     routes:
       - type: rewrite
         source: /*

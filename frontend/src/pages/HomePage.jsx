@@ -17,23 +17,19 @@ import CheckIcon from '@mui/icons-material/Check';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { Link as RouterLink } from 'react-router';
-import { fetchEvents, subscribeEmail } from '../api.js';
+import { subscribeEmail } from '../api.js';
+import useEventsStore from '../stores/eventsStore.js';
 
 function HomePage() {
-  const [nextEvent, setNextEvent] = useState(null);
+  const { events, fetchEvents } = useEventsStore();
+  const nextEvent = events.length > 0 ? events[0] : null;
   const [email, setEmail] = useState('');
   const [subscribeStatus, setSubscribeStatus] = useState(null);
   const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
-    fetchEvents()
-      .then((events) => {
-        if (events.length > 0) {
-          setNextEvent(events[0]);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    fetchEvents();
+  }, [fetchEvents]);
 
   async function handleSubscribe(e) {
     e.preventDefault();

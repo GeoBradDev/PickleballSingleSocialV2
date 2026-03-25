@@ -17,6 +17,7 @@ class Command(BaseCommand):
 
         # Commands that run every hour
         always_commands = [
+            "update_event_statuses",
             "expire_stale_registrations",
             "send_marketing_emails",
             "send_payment_reminders",
@@ -25,19 +26,30 @@ class Command(BaseCommand):
         ]
 
         # Time-windowed commands: (command_name, start_hour, end_hour)
+        #
+        # Timeline for a Saturday event:
+        #   Saturday 7-9 AM:  send_dayof_reminders (confirmed attendees)
+        #   Saturday evening: event happens (~3-5 PM)
+        #   Saturday 8-10 PM: send_match_form (form links to confirmed attendees)
+        #   Sunday 7-9 AM:    send_match_reminder (nudge non-submitters)
+        #   Sunday 8-10 PM:   match pipeline (close form, process, notify)
+        #
         windowed_commands = [
             ("send_dayof_reminders", 7, 9),
             ("send_match_form", 20, 22),
             ("send_match_reminder", 7, 9),
         ]
 
-        # Match pipeline: runs 1-3 AM, short-circuits on failure
+        # Match pipeline: runs 8-10 PM day after event
+        # close_match_form transitions yesterday's events to "completed"
+        # process_matches finds mutual selections
+        # send_match_emails notifies matched pairs
         match_pipeline = [
             "close_match_form",
             "process_matches",
             "send_match_emails",
         ]
-        match_pipeline_window = (1, 3)
+        match_pipeline_window = (20, 22)
 
         # Run always-on commands
         for cmd in always_commands:
@@ -56,16 +68,10 @@ class Command(BaseCommand):
             for cmd in match_pipeline:
                 success = self._run_command(cmd, verbosity)
                 if not success:
-                    self.stderr.write(
-                        f"  Match pipeline halted: {cmd} failed, "
-                        f"skipping remaining steps."
-                    )
+                    self.stderr.write(f"  Match pipeline halted: {cmd} failed, skipping remaining steps.")
                     break
         elif verbosity >= 2:
-            self.stdout.write(
-                f"  Skipping match pipeline: outside window "
-                f"({start}-{end}, current hour={hour})"
-            )
+            self.stdout.write(f"  Skipping match pipeline: outside window ({start}-{end}, current hour={hour})")
 
     def _run_command(self, name, verbosity):
         """Run a management command, catching and logging exceptions.

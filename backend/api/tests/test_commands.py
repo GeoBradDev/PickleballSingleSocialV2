@@ -22,14 +22,14 @@ from api.tests.helpers import (
 # 1. close_match_form
 # ---------------------------------------------------------------------------
 class CloseMatchFormTests(TestCase):
-    def test_open_event_yesterday_set_to_completed(self):
+    def test_open_event_yesterday_not_affected(self):
         yesterday = timezone.now() - timedelta(days=1)
         event = make_event(event_date=yesterday, status="open")
         out = StringIO()
         call_command("close_match_form", stdout=out)
         event.refresh_from_db()
-        self.assertEqual(event.status, "completed")
-        self.assertIn("completed", out.getvalue())
+        self.assertEqual(event.status, "open")
+        self.assertIn("Found 0", out.getvalue())
 
     def test_closed_event_yesterday_set_to_completed(self):
         yesterday = timezone.now() - timedelta(days=1)
@@ -160,7 +160,7 @@ class SendMatchEmailsTests(TestCase):
 class SendMatchFormTests(TestCase):
     @patch("api.management.commands.send_match_form.send_match_form_link")
     def test_event_today_sends_links(self, mock_send):
-        event = make_event(event_date=timezone.now(), status="open")
+        event = make_event(event_date=timezone.now(), status="closed")
         reg = make_registration(event=event, attendee=make_attendee(1), status="confirmed")
 
         out = StringIO()
@@ -185,14 +185,14 @@ class SendMatchFormTests(TestCase):
 # 5. send_match_reminder
 # ---------------------------------------------------------------------------
 class SendMatchReminderTests(TestCase):
-    def _today_noon(self):
-        """Return noon today in the project timezone to avoid date boundary issues in CI."""
-        now = timezone.now()
+    def _yesterday_noon(self):
+        """Return noon yesterday to match the command's yesterday filter."""
+        now = timezone.now() - timedelta(days=1)
         return now.replace(hour=12, minute=0, second=0, microsecond=0)
 
     @patch("api.management.commands.send_match_reminder.send_match_form_reminder")
     def test_confirmed_without_submission_gets_reminder(self, mock_send):
-        event = make_event(event_date=self._today_noon(), status="open")
+        event = make_event(event_date=self._yesterday_noon(), status="closed")
         reg = make_registration(event=event, attendee=make_attendee(1), status="confirmed")
 
         out = StringIO()
@@ -203,7 +203,7 @@ class SendMatchReminderTests(TestCase):
 
     @patch("api.management.commands.send_match_reminder.send_match_form_reminder")
     def test_registration_with_submission_skipped(self, mock_send):
-        event = make_event(event_date=self._today_noon(), status="open")
+        event = make_event(event_date=self._yesterday_noon(), status="closed")
         reg = make_registration(event=event, attendee=make_attendee(1), status="confirmed")
         make_submission(event, reg, selected_regs=[])
 

@@ -552,7 +552,7 @@ class GetRegistrationPaymentTest(TestCase):
             status="pending",
             payment_intent_id="pi_abc",
         )
-        resp = self.client.get(f"/api/registrations/{reg.id}/payment/")
+        resp = self.client.get(f"/api/registrations/{reg.match_token}/payment/")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["client_secret"], "cs_test")
@@ -564,11 +564,14 @@ class GetRegistrationPaymentTest(TestCase):
         event = make_event()
         attendee = make_attendee(n=101)
         reg = make_registration(event=event, attendee=attendee, status="confirmed")
-        resp = self.client.get(f"/api/registrations/{reg.id}/payment/")
+        resp = self.client.get(f"/api/registrations/{reg.match_token}/payment/")
         self.assertEqual(resp.status_code, 409)
 
     def test_not_found(self):
-        resp = self.client.get("/api/registrations/99999/payment/")
+        import uuid
+
+        fake_token = uuid.uuid4()
+        resp = self.client.get(f"/api/registrations/{fake_token}/payment/")
         self.assertEqual(resp.status_code, 404)
 
     def test_pending_no_intent_returns_409(self):
@@ -580,7 +583,7 @@ class GetRegistrationPaymentTest(TestCase):
             status="pending",
             payment_intent_id="",
         )
-        resp = self.client.get(f"/api/registrations/{reg.id}/payment/")
+        resp = self.client.get(f"/api/registrations/{reg.match_token}/payment/")
         self.assertEqual(resp.status_code, 409)
         self.assertIn("No payment intent", resp.json()["detail"])
 
