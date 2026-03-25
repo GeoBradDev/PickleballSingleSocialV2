@@ -15,6 +15,8 @@ import EventDetailPage from './pages/admin/EventDetailPage.jsx';
 import EventFormPage from './pages/admin/EventFormPage.jsx';
 import PayPage from './pages/PayPage.jsx';
 import MatchFormPage from './pages/MatchFormPage.jsx';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx';
+import TermsPage from './pages/TermsPage.jsx';
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/code-of-conduct" element={<CodeOfConductPage />} />
         <Route path="/match/:token" element={<MatchFormPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/admin/login" element={<LoginPage />} />
         <Route path="/admin" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/admin/events/new" element={<ProtectedRoute><EventFormPage /></ProtectedRoute>} />

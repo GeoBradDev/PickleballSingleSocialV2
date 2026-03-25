@@ -35,6 +35,14 @@ function Footer() {
           Code of Conduct
         </Button>
       </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mb: 3 }}>
+        <Button component={RouterLink} to="/privacy" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+          Privacy Policy
+        </Button>
+        <Button component={RouterLink} to="/terms" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+          Terms of Service
+        </Button>
+      </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         All events hosted in partnership with Arch Pickleball & Badminton, 11333 Blake Dr, Bridgeton, MO 63044
       </Typography>
