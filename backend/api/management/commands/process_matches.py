@@ -1,5 +1,4 @@
 import logging
-
 from itertools import combinations
 
 from django.core.management.base import BaseCommand
