@@ -98,7 +98,11 @@ MARKETING_TEMPLATES = {
         things intimate and well-organized.</p>
         <p>Registration opens soon. Mark your calendar!</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>View Event Details</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>View Event Details</a></p>
         """,
     },
     "marketing_registration_open": {
@@ -110,7 +114,11 @@ MARKETING_TEMPLATES = {
         <p>We have {capacity} spots available and they tend to fill up
         quickly. Don't miss out!</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Register Now</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Register Now</a></p>
         """,
     },
     "marketing_spots_filling": {
@@ -122,7 +130,11 @@ MARKETING_TEMPLATES = {
         <p>If you've been thinking about joining, now is the time to
         secure your spot before we're full.</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Register Before It's Full</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Register Before It's Full</a></p>
         """,
         "full_subject": "Sold Out (Waitlist Open): {age_label} Singles Social on {date}",
         "full_html": """
@@ -132,7 +144,11 @@ MARKETING_TEMPLATES = {
         <p>But don't worry, you can still join the waitlist. If a spot opens
         up, we'll let you know right away.</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Join the Waitlist</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Join the Waitlist</a></p>
         """,
     },
     "marketing_one_week": {
@@ -144,7 +160,11 @@ MARKETING_TEMPLATES = {
         <p>There are still a few spots left. This is your chance to meet
         other pickleball-loving singles in a fun, organized setting.</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Grab Your Spot</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Grab Your Spot</a></p>
         """,
         "full_subject": "One Week Away (Waitlist Open): {age_label} Pickleball Singles Social",
         "full_html": """
@@ -154,7 +174,11 @@ MARKETING_TEMPLATES = {
         <p>All {capacity} spots are taken, but spots do open up. Join the
         waitlist and you'll be first in line if someone cancels.</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Join the Waitlist</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Join the Waitlist</a></p>
         """,
     },
     "marketing_last_chance": {
@@ -166,7 +190,11 @@ MARKETING_TEMPLATES = {
         <p>This is your last chance to register. Once spots are gone,
         they're gone!</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Register Now</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Register Now</a></p>
         """,
         "full_subject": "Waitlist Open: {age_label} Singles Social This {weekday}",
         "full_html": """
@@ -176,7 +204,11 @@ MARKETING_TEMPLATES = {
         <p>We're fully booked, but cancellations happen. Join the waitlist
         for a chance to get in.</p>
         <p style="text-align:center;padding:8px 0;">
-        <a href="{register_url}" style=""" + '"' + _BTN + '"' + """>Join the Waitlist</a></p>
+        <a href="{register_url}" style="""
+        + '"'
+        + _BTN
+        + '"'
+        + """>Join the Waitlist</a></p>
         """,
     },
 }
@@ -214,7 +246,7 @@ def _log_email(attendee, event, email_type):
 
 
 def _heading(text):
-    return f'<h2 style="font-family:\'Playfair Display\',\'Georgia\',serif;color:#3d2c2c;margin:0 0 16px;font-size:24px;">{text}</h2>'
+    return f"<h2 style=\"font-family:'Playfair Display','Georgia',serif;color:#3d2c2c;margin:0 0 16px;font-size:24px;\">{text}</h2>"
 
 
 def _button(url, label):

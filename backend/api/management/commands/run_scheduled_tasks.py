@@ -17,6 +17,7 @@ class Command(BaseCommand):
 
         # Commands that run every hour
         always_commands = [
+            "update_event_statuses",
             "expire_stale_registrations",
             "send_marketing_emails",
             "send_payment_reminders",
