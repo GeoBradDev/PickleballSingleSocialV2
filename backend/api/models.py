@@ -77,6 +77,7 @@ class Registration(models.Model):
     attending_happy_hour = models.BooleanField(default=False)
     match_token = models.UUIDField(unique=True, default=uuid.uuid4)
     payment_intent_id = models.CharField(max_length=255, blank=True)
+    payment_reminder_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
