@@ -535,33 +535,35 @@ def send_match_form_reminder(registration):
     _log_email(registration.attendee, registration.event, email_type)
 
 
-def send_match_notification(match):
-    """Notify both parties of a mutual match with contact info."""
-    _send_match_to(match, match.attendee_a, match.attendee_b)
-    _send_match_to(match, match.attendee_b, match.attendee_a)
-
-
-def _send_match_to(match, registration, other_registration):
-    """Send match email to one party."""
-    email_type = f"match_notification_{other_registration.id}"
+def send_combined_match_notification(event, registration, matched_registrations):
+    """Send a single email listing all mutual matches for one attendee."""
+    email_type = "match_notification"
     attendee = registration.attendee
-    other = other_registration.attendee
-    if _already_sent(attendee, match.event, email_type):
+    if _already_sent(attendee, event, email_type):
         return
 
-    subject = f"You have a match from {match.event.title}!"
+    count = len(matched_registrations)
+    plural = "matches" if count > 1 else "match"
+    subject = f"You have {count} {plural} from {event.title}!"
+
+    match_cards = ""
+    for other_reg in matched_registrations:
+        other = other_reg.attendee
+        match_cards += f"""
+        <tr><td style="padding:16px 20px;border-bottom:1px solid #fdf8f6;">
+        <p style="margin:0 0 4px;font-weight:600;font-size:17px;color:#3d2c2c;">{other.first_name} {other.last_name[0]}.</p>
+        <p style="margin:0;color:#7a6565;">
+        <a href="mailto:{other.email}" style="color:#b5627e;">{other.email}</a></p>
+        </td></tr>"""
+
     body = f"""
     {_heading("It's a Match!")}
     <p>Hi {attendee.first_name},</p>
-    <p>Great news! You and <strong>{other.first_name} {other.last_name[0]}.</strong>
-    both selected each other at <strong>{match.event.title}</strong>.</p>
-    <p>Here's how to reach them:</p>
+    <p>Great news! You had <strong>{count} mutual {plural}</strong>
+    at <strong>{event.title}</strong>.</p>
+    <p>Here {"are the people" if count > 1 else "is the person"} who also selected you:</p>
     <table style="margin:16px 0;background-color:#f8e1e8;border-radius:12px;width:100%;">
-    <tr><td style="padding:20px;">
-    <p style="margin:0 0 4px;font-weight:600;font-size:17px;color:#3d2c2c;">{other.first_name} {other.last_name[0]}.</p>
-    <p style="margin:0;color:#7a6565;">
-    <a href="mailto:{other.email}" style="color:#b5627e;">{other.email}</a></p>
-    </td></tr>
+    {match_cards}
     </table>
     <p>We suggest keeping it simple: introduce yourself, mention the event,
     and maybe suggest grabbing a coffee or playing some more pickleball together.</p>
@@ -571,7 +573,7 @@ def _send_match_to(match, registration, other_registration):
     from .mailerlite import send_email
 
     send_email(attendee.email, subject, _wrap_email(body))
-    _log_email(attendee, match.event, email_type)
+    _log_email(attendee, event, email_type)
 
 
 def send_save_the_date(attendee, event):
