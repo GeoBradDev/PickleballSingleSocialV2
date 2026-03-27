@@ -44,6 +44,16 @@ function Footer() {
         </Button>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        Questions or found a bug?{' '}
+        <Box
+          component="a"
+          href="mailto:info@pickleballsinglessocial.com"
+          sx={{ color: 'text.primary', textDecoration: 'underline' }}
+        >
+          info@pickleballsinglessocial.com
+        </Box>
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         All events hosted in partnership with Arch Pickleball & Badminton, 11333 Blake Dr, Bridgeton, MO 63044
       </Typography>
       <Typography variant="body2" color="text.secondary">
