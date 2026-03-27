@@ -222,6 +222,7 @@ def register_for_event(request: HttpRequest, event_id: int, payload: Registratio
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="usd",
+            receipt_email=attendee.email,
             metadata={
                 "registration_id": str(registration.id),
                 "event_id": str(event.id),
@@ -389,6 +390,7 @@ def _try_promote_waitlisted(event, gender):
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="usd",
+            receipt_email=waitlisted.attendee.email,
             metadata={
                 "registration_id": str(waitlisted.id),
                 "event_id": str(event.id),
