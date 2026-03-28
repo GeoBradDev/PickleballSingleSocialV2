@@ -238,11 +238,17 @@ def render_marketing_email(email_key, event, full=False):
 
 
 def _already_sent(attendee, event, email_type):
-    return EmailLog.objects.filter(attendee=attendee, event=event, email_type=email_type).exists()
+    return EmailLog.objects.filter(
+        attendee=attendee, event=event, email_type=email_type, status_code__gte=200, status_code__lt=300
+    ).exists()
 
 
-def _log_email(attendee, event, email_type):
-    EmailLog.objects.create(attendee=attendee, event=event, email_type=email_type)
+def _status_code(response):
+    return response.status_code if response is not None else None
+
+
+def _log_email(attendee, event, email_type, status_code=None):
+    EmailLog.objects.create(attendee=attendee, event=event, email_type=email_type, status_code=status_code)
 
 
 def _heading(text):
@@ -319,13 +325,13 @@ def send_registration_confirmation(registration):
     """
     from .mailerlite import add_subscriber, send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
     add_subscriber(
         registration.attendee.email,
         registration.attendee.first_name,
         registration.attendee.last_name,
     )
-    _log_email(registration.attendee, registration.event, email_type)
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_waitlist_notification(registration):
@@ -349,13 +355,13 @@ def send_waitlist_notification(registration):
     """
     from .mailerlite import add_subscriber, send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
     add_subscriber(
         registration.attendee.email,
         registration.attendee.first_name,
         registration.attendee.last_name,
     )
-    _log_email(registration.attendee, registration.event, email_type)
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_waitlist_promotion(registration):
@@ -379,8 +385,8 @@ def send_waitlist_promotion(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_payment_expired(registration):
@@ -400,8 +406,8 @@ def send_payment_expired(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_reminder(registration):
@@ -427,8 +433,8 @@ def send_reminder(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_payment_reminder(registration):
@@ -450,8 +456,8 @@ def send_payment_reminder(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_dayof_reminder(registration):
@@ -478,8 +484,8 @@ def send_dayof_reminder(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_match_form_link(registration):
@@ -508,8 +514,8 @@ def send_match_form_link(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_match_form_reminder(registration):
@@ -531,8 +537,8 @@ def send_match_form_reminder(registration):
     """
     from .mailerlite import send_email
 
-    send_email(registration.attendee.email, subject, _wrap_email(body))
-    _log_email(registration.attendee, registration.event, email_type)
+    resp = send_email(registration.attendee.email, subject, _wrap_email(body))
+    _log_email(registration.attendee, registration.event, email_type, _status_code(resp))
 
 
 def send_combined_match_notification(event, registration, matched_registrations):
@@ -572,8 +578,8 @@ def send_combined_match_notification(event, registration, matched_registrations)
     """
     from .mailerlite import send_email
 
-    send_email(attendee.email, subject, _wrap_email(body))
-    _log_email(attendee, event, email_type)
+    resp = send_email(attendee.email, subject, _wrap_email(body))
+    _log_email(attendee, event, email_type, _status_code(resp))
 
 
 def send_save_the_date(attendee, event):
@@ -592,5 +598,5 @@ def send_save_the_date(attendee, event):
     """
     from .mailerlite import send_email
 
-    send_email(attendee.email, subject, _wrap_email(body))
-    _log_email(attendee, event, email_type)
+    resp = send_email(attendee.email, subject, _wrap_email(body))
+    _log_email(attendee, event, email_type, _status_code(resp))

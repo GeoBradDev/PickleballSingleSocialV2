@@ -115,13 +115,11 @@ class EmailLog(models.Model):
     attendee = models.ForeignKey(Attendee, on_delete=models.CASCADE)
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     email_type = models.CharField(max_length=50)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        unique_together = [("attendee", "event", "email_type")]
-
     def __str__(self):
-        return f"{self.email_type} to {self.attendee} for {self.event}"
+        return f"{self.email_type} to {self.attendee} for {self.event} ({self.status_code})"
 
 
 class MarketingEmailLog(models.Model):

@@ -33,7 +33,7 @@ class MatchAdmin(admin.ModelAdmin):
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
-    list_display = ("attendee", "event", "email_type", "sent_at")
+    list_display = ("attendee", "event", "email_type", "status_code", "sent_at")
 
 
 @admin.register(MarketingEmailLog)

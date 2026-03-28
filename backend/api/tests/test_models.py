@@ -161,15 +161,15 @@ class EmailLogModelTests(TestCase):
     def test_str(self):
         event = make_event(event_date=EVENT_DATE)
         attendee = make_attendee()
-        log = EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
-        self.assertEqual(str(log), f"confirmation to {attendee} for {event}")
+        log = EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation", status_code=202)
+        self.assertEqual(str(log), f"confirmation to {attendee} for {event} (202)")
 
-    def test_unique_together_attendee_event_email_type(self):
+    def test_allows_multiple_entries_for_retries(self):
         event = make_event()
         attendee = make_attendee()
-        EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
-        with self.assertRaises(IntegrityError):
-            EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation")
+        EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation", status_code=None)
+        EmailLog.objects.create(attendee=attendee, event=event, email_type="confirmation", status_code=202)
+        self.assertEqual(EmailLog.objects.filter(attendee=attendee, event=event, email_type="confirmation").count(), 2)
 
 
 # ------------------------------------------------------------------
