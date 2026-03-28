@@ -16,6 +16,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 import useAdminEventStore from '../../stores/adminEventStore.js';
 
 function EventDetailPage() {
@@ -48,9 +49,11 @@ function EventDetailPage() {
 
   const handleTabChange = (_event, newValue) => {
     setActiveTab(newValue);
-    if (newValue === 1) loadMatches(eventId);
-    if (newValue === 2) loadSubmissions(eventId);
+    if (newValue === 2) loadMatches(eventId);
+    if (newValue === 3) loadSubmissions(eventId);
   };
+
+  const confirmedRegistrations = registrations.filter((r) => r.status === 'confirmed');
 
   const handleTriggerCommand = (command) => {
     triggerCommand(eventId, command);
@@ -84,6 +87,7 @@ function EventDetailPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab label="Registrations" />
+          <Tab label="Check-In" />
           <Tab label="Matches" />
           <Tab label="Submissions" />
         </Tabs>
@@ -144,8 +148,50 @@ function EventDetailPage() {
         </>
       )}
 
-      {/* Matches Tab */}
+      {/* Check-In Tab */}
       {activeTab === 1 && (
+        <>
+          <Typography variant="h5" gutterBottom>
+            Check-In ({confirmedRegistrations.length} confirmed)
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Gender</TableCell>
+                  <TableCell>Coaching</TableCell>
+                  <TableCell>Happy Hour</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {confirmedRegistrations.map((reg) => (
+                  <TableRow key={reg.id}>
+                    <TableCell>{reg.attendee_first_name} {reg.attendee_last_name}</TableCell>
+                    <TableCell>{reg.attendee_gender}</TableCell>
+                    <TableCell>
+                      <Chip label={reg.attending_coaching ? 'Yes' : 'No'} color={reg.attending_coaching ? 'success' : 'default'} size="small" variant={reg.attending_coaching ? 'filled' : 'outlined'} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={reg.attending_happy_hour ? 'Yes' : 'No'} color={reg.attending_happy_hour ? 'success' : 'default'} size="small" variant={reg.attending_happy_hour ? 'filled' : 'outlined'} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {confirmedRegistrations.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} sx={{ textAlign: 'center' }}>
+                      No confirmed registrations yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+
+      {/* Matches Tab */}
+      {activeTab === 2 && (
         <>
           <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
             <Button
@@ -210,7 +256,7 @@ function EventDetailPage() {
       )}
 
       {/* Submissions Tab */}
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <>
           {submissionsLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
