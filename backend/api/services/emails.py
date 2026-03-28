@@ -395,14 +395,15 @@ def send_payment_expired(registration):
     if _already_sent(registration.attendee, registration.event, email_type):
         return
     event = registration.event
+    register_url = f"{settings.SITE_URL}/events/{event.id}"
     subject = f"Your payment link has expired for {event.title}"
     body = f"""
     {_heading("Payment Link Expired")}
     <p>Hi {registration.attendee.first_name},</p>
     <p>Your payment link for <strong>{event.title}</strong>
     on {event.event_date.strftime("%A, %B %-d, %Y")} has expired and your spot has been released.</p>
-    <p>If you're still interested, just reply to this email
-    and we'll do our best to get you back in.</p>
+    <p>If you're still interested, you can sign up again (subject to availability):</p>
+    {_button(register_url, "Register Again")}
     """
     from .mailerlite import send_email
 
